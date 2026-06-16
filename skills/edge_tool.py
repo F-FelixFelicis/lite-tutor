@@ -48,7 +48,8 @@ class EdgeComputeTool:
                             "description": "Max execution time in seconds."
                         }
                     },
-                    "required": []
+                    "required": [],
+                    "additionalProperties": False
                 }
             }
         }
@@ -103,7 +104,8 @@ class EdgeKnowledgeTool:
                             "description": "The query to search in the local knowledge base."
                         }
                     },
-                    "required": ["query"]
+                    "required": ["query"],
+                    "additionalProperties": False
                 }
             }
         }
@@ -121,8 +123,128 @@ class EdgeKnowledgeTool:
         except Exception as e:
             return f"Tool Execution Error (Edge node might be offline): {str(e)}"
 
+class EdgeQuizTool:
+    def __init__(self, cpolar_url: str):
+        self.api_url = f"{cpolar_url.rstrip('/')}/quiz"
+        self.name = "edge_quiz_generator"
+        self.description = (
+            "Generate a short quiz prompt based on the user's question and local knowledge context. "
+            "Use this to produce a checkpoint question for learning validation."
+        )
+
+    def get_tool_schema(self) -> Dict[str, Any]:
+        return {
+            "type": "function",
+            "function": {
+                "name": self.name,
+                "description": self.description,
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "question": {
+                            "type": "string",
+                            "description": "The learner's original question or topic."
+                        },
+                        "context": {
+                            "type": "string",
+                            "description": "Optional context to base the quiz on."
+                        },
+                        "n_results": {
+                            "type": "integer",
+                            "description": "Number of context chunks to retrieve if context is not provided."
+                        },
+                        "difficulty": {
+                            "type": "string",
+                            "enum": ["easy", "medium", "hard"],
+                            "description": "Quiz difficulty level: easy (basic concepts), medium (comprehensive), hard (advanced analysis)."
+                        },
+                        "question_type": {
+                            "type": "string",
+                            "enum": ["varied", "choice", "fill", "short_answer", "true_false"],
+                            "description": "Question type: varied (mixed), choice (multiple choice), fill (fill-in-blank), short_answer, true_false."
+                        }
+                    },
+                    "required": ["question"],
+                    "additionalProperties": False
+                }
+            }
+        }
+
+    def execute(self, question: str, context: str = "", n_results: int = 2,
+                difficulty: str = "medium", question_type: str = "varied") -> str:
+        headers = {"Content-Type": "application/json"}
+        payload = {"question": question, "context": context, "n_results": n_results,
+                   "difficulty": difficulty, "question_type": question_type}
+        try:
+            response = requests.post(self.api_url, headers=headers, json=payload, timeout=10)
+            if response.status_code == 200:
+                data = response.json()
+                return f"Tool Execution Status: {data.get('status')}. Quiz: {data.get('quiz')}"
+            return f"Tool Execution Failed with status code: {response.status_code}"
+        except Exception as e:
+            return f"Tool Execution Error (Edge node might be offline): {str(e)}"
+
+class EdgeGradeTool:
+    def __init__(self, cpolar_url: str):
+        self.api_url = f"{cpolar_url.rstrip('/')}/grade"
+        self.name = "edge_answer_grader"
+        self.description = (
+            "Grade a learner's answer against expected keywords for quick validation. "
+            "Use this to confirm understanding in the learning loop."
+        )
+
+    def get_tool_schema(self) -> Dict[str, Any]:
+        return {
+            "type": "function",
+            "function": {
+                "name": self.name,
+                "description": self.description,
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "answer": {
+                            "type": "string",
+                            "description": "The learner's answer to be evaluated."
+                        },
+                        "keywords": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Expected keywords that should appear in the answer."
+                        },
+                        "min_hit": {
+                            "type": "integer",
+                            "description": "Minimum number of keyword hits required to pass."
+                        }
+                    },
+                    "required": ["answer"],
+                    "additionalProperties": False
+                }
+            }
+        }
+
+    def execute(self, answer: str, keywords: List[str] = None, min_hit: int = 1) -> str:
+        headers = {"Content-Type": "application/json"}
+        payload = {
+            "answer": answer,
+            "keywords": keywords or [],
+            "min_hit": min_hit
+        }
+        try:
+            response = requests.post(self.api_url, headers=headers, json=payload, timeout=10)
+            if response.status_code == 200:
+                data = response.json()
+                return f"Tool Execution Status: {data.get('status')}. Result: {data.get('result')}"
+            return f"Tool Execution Failed with status code: {response.status_code}"
+        except Exception as e:
+            return f"Tool Execution Error (Edge node might be offline): {str(e)}"
+
 def get_tool_schemas(cpolar_url: str) -> List[Dict[str, Any]]:
-    tools = [EdgeComputeTool(cpolar_url), EdgeKnowledgeTool(cpolar_url)]
+    tools = [
+        EdgeComputeTool(cpolar_url),
+        EdgeKnowledgeTool(cpolar_url),
+        EdgeQuizTool(cpolar_url),
+        EdgeGradeTool(cpolar_url)
+    ]
     return [tool.get_tool_schema() for tool in tools]
 
 # Quick Local Test Block

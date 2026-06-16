@@ -1,0 +1,3220 @@
+【第1页】
+2024/6/6
+1
+第3章
+SQL语言初步
+计算机学院
+叶晨
+
+【第2页】
+2024/6/6
+2
+主要内容（一）
+v 3.1 SQL简介
+"SQL的特点
+"SQL语言的分类
+v SQL数据定义功能
+v SQL数据查询功能
+v SQL数据修改功能
+v SQL数据控制功能
+v 3.2 利用SQL语⾔之DDL-定义数据库
+"定义数据库、表、索引、视图
+v 3.3 利用SQL语⾔之DML-操纵数据库
+"插入、修改、删除、查询数据
+"查询数据：学习正确表达各种查询需求
+
+【第3页】
+2024/6/6
+3
+3.1 SQL简介
+v 历史
+" SQL: Structured Query Language
+" 1974年，由Boyce和Chamber提出
+" 1975-1979年，由IBM的San Jose研究室在System R上首次实现，
+称为Sequel (Structured English QUEry Language) 
+" 1986年ANSI公布第一个SQL标准：SQL-86
+" 1987、1989、1992….不断扩充；
+" 目前有标准：SQL86、SQL92、SQL99、SQL2003、SQL2006、
+SQL2008
+v 本章主要讲述SQL92语言的用法。
+v 要求能熟练使用SQL语句在不同的RDBMS中完成数据库的基本操作。
+标准的关系
+数据库语⾔
+
+【第4页】
+2024/6/6
+4
+v 标准化
+" 有关组织
+v ANSI(American Natural Standard Institute)
+v ISO(International Organization for Standardization)
+" 有关标准
+v SQL-86
+" “数据库语言SQL”
+v SQL-89
+" “具有完整性增强的数据库语言SQL”，增加了对完整性约束的支持
+v SQL-92, 也称为SQL2
+" “数据库语言SQL”，是SQL-89的超集，增加了许多新特性，如新的数据类型，更丰富的数
+据操作，更强的完整性、安全性支持等。
+v SQL-99, 也称为SQL3
+" 增加对面向对象模型的支持
+v SQL2003
+" 支持XML，支持Window 函数、Merge 语句等
+v SQL2006
+" 继续增强XML方面的特性
+v SQL2008
+
+【第5页】
+2024/6/6
+5
+v 特点
+"一体化
+v 集DDL，DML，DCL于一体的数据库语言
+v 单一的结构----关系，带来了数据操作符的统一
+"面向集合的操作方式
+v 一次一集合
+"高度非过程化
+v 用户只需提出“做什么”，无须告诉“怎么做”，不必了解存
+取路径
+"两种使用方式，统一的语法结构
+v SQL既是自含式语言（用户使用），又是嵌入式语言（程序员
+使用）
+"语言简洁，易学易用
+
+【第6页】
+2024/6/6
+6
+SQL的基本概念
+v 请比较：
+" SQL支持的数据库三级模式
+见图
+" ANSI SPARC报告中的数据库三级模式
+不同点
+v 视图（View）
+" 视图从若干个Table或其他视图上生成
+" 视图是一张虚表
+" 视图属于外模式（子模式）
+" Database中只有视图的定义，而无实际存储的数据
+v 基本表（Table）
+v 存储文件（File）
+"*.dbf         *.mdb          *.mdf  、*.ndf
+
+【第7页】
+2024/6/6
+7
+v SQL对三级模式的对应支持
+用户1
+视图
+基本表1
+基本表2
+用户2
+存储文件
+外模式
+模式
+内模式
+用户
+外模式
+模式
+内模式
+DB
+内模式的基本单
+位，存储基本表
+外模式的基本单
+位，与基本表有
+本质区别
+返回
+
+【第8页】
+2024/6/6
+8
+v 不同之处：
+" 三级模式中，一个应用程序只能开启一个外模式，SQL中则不然
+" 三级模式中，应用程序只能访问外模式，SQL中可以是外模式和
+模式
+模式∕内模式映像
+外模式∕模式映像
+应用1
+应用2
+应用3
+外模式A
+外模式B
+模式
+内模式
+OS
+DBMS
+数据库
+SQL用户
+SQL用户
+视图1
+视图2
+基本表1
+基本表2
+基本表3
+存储文件1
+存储文件2
+存储文件3
+外模
+式
+模式
+内模
+式
+图2 SQL支持的数据库模式
+图1 SPARC三级模式结构
+返回
+
+【第9页】
+2024/6/6
+9
+SQL数据库体系结构
+用户1
+用户2
+用户4
+视图V1
+视图V1
+用户3
+基本表B1
+基本表B2
+基本表B4
+基本表B3
+存储文件S1
+存储文件S2
+存储文件S4
+存储文件S3
+SQL用户
+VIEW
+Table
+Stored file
+图3 SQL数据库体系结构
+
+【第10页】
+10
+v 数据定义语言DDL (Data Definition Language)
+" 用于创建、更改或删除数据库对象，如包括定义Database, Table, View, 
+Index,完整性约束条件等，也包括定义对象(RowType行对象, Type列对
+象)
+" 语句包括：CREATE（建立）、ALTER（修改）、DROP（撤销）
+v 数据操纵语言DML (Data Manipulation Language)
+" 用于操纵数据库对象（如表）。
+ü 各种方式的更新与检索操作，如直接输入记录，从其他Table(由SubQuery建立)输入
+ü 各种复杂条件的检索，如连接查找，模糊查找，分组查找，嵌套查找等
+ü 各种聚集操作，求平均、求和、…等，分组聚集，分组过滤等
+" 语句包括：SELECT、INSERT、UPDATE、DELETE
+v 数据控制语言DCL  (Data Control Language)
+" 用于定义控制访问对象（如表）。
+v 安全性控制：授权和撤消授权
+" 语句包括：GRANT、REVOKE
+SQL分类
+
+【第11页】
+2024/6/6
+11
+SQL功能
+操作符
+数据查询
+SELECT
+数据定义
+CREATE，ALTER，DROP
+数据更新
+INSERT，UPDATE，DELETE
+数据控制
+GRANT，REVOKE
+v SQL语句的9个核心动词
+
+【第12页】
+2024/6/6
+12
+3.2 基本的数据定义
+v SQL的数据定义语句（DDL）包括以下语句：
+创建
+删除
+修改
+表
+CTEATE TABLE
+DROP TABLE
+ALTER TABLE
+视图
+CTEATE VIEW
+DROP VIEW
+ALTER VIEW
+索引
+CTEATE INDEX
+DROP INDEX
+n 注意：索引无修改语句！
+
+【第13页】
+学⽣选课数据库SCT
+Ø学⽣：学号S#, 姓名Sname, 性别Ssex, 年龄Sage, 所属系别D#，班级Sclass
+Student ( S#  char(8), Sname char(10), Ssex char(2),  Sage integer, 
+D# char(2), Sclass char(6) )
+Ø 院系：系别D#，系名Dname, 系主任Dean
+Dept ( D#  char(2), Dname
+char(10), Dean char(10) )
+SCT
+Student  
+Dept
+
+【第14页】
+Ø 课程：课号C#, 课名Cname, 教师编号T#, 学时Chours，学分Credit
+Course ( C#
+char(3), Cname char(12), Chours integer,  
+Credit float(1), T# char(3) )
+Ø 教师：教师编号T#，教师名Tname, 所属院系D#，工资Salary
+Teacher ( T# char(3), Tname char(10), D# char(2),  Salary 
+float(2) )
+Ø 选课：学号S#, 课号C#, 成绩Score
+SC ( S# char(8), C# char(3), Score float(1) )
+SCT
+Student  
+Dept  
+Course  
+Teacher  
+SC
+后⾯要反复
+使⽤它们！
+
+【第15页】
+Ø DDL: Data Definition Language
+q 创建数据库(DB)—Create Database
+q 创建DB中的Table(定义关系模式)---Create Table
+q 定义Table及其各个属性的约束条件(定义完整性约束)
+q 定义View (定义外模式及E-C映像)
+q 定义Index、Tablespace…
+…等(定义物理存储参数)
+q 上述各种定义的撤消与修正
+Ø DDL通常由DBA来使⽤，也有经DBA授权后由应⽤程序员来使⽤
+先学习简
+单形式！
+建⽴数据库
+Ø包括两件事：定义数据库和表（使⽤DDL）,向表中追加元组（使⽤DML）
+
+【第16页】
+创建Database
+Ø数据库(Database)是若干具有相互关联关系的Table/Relation的集合
+Ø数据库可以看作是一个集中存放若干Table的大型文件
+Øcreate database的简单语法形式：
+create
+database
+数据库名;
+⽰例：创建课程学习数据库SCT
+create
+database
+SCT;
+SCT
+接着就可创
+建表了！
+
+【第17页】
+创建Table
+Øcreate table简单语法形式1：
+Create table
+表名( 列名数据类型[Primary key |Unique] [Not null]
+[, 列名数据类型[Not null] , … ]) ;
+Ø “ [ ] ”表示其括起的内容可以省略，“ | ” 表示其隔开的两项可取其一
+Ø Primary key: 主键约束。每个表只能创建一个主键约束。
+Ø Unique: 唯一性约束(即候选键)。可以有多个唯一性约束。
+Ø Not null: 非空约束。是指该列允许不允许有空值出现，如选择了Not null表
+明该列不允许有空值出现。
+Ø 语法中的数据类型在SQL标准中有定义
+
+【第18页】
+2024/6/6
+18
+创建表
+v 语法1：
+CREATE TABLE <表名>
+(<列名> <数据类型> [NULL | NOT NULL], …,
+[PRIMARY KEY <关键字>,]
+[FOREIGN KEY <外来关键字> REFERENCES <外来关键字所
+属表名>, …,]
+[CHECK <校验条件>,]);
+Ø “ [ ] ”表示其括起的内容可以省略，“ | ” 表示其隔开的两项可取其一
+Ø Primary key: 主键约束。每个表只能创建一个主键约束。
+Ø Unique: 唯一性约束(即候选键)。可以有多个唯一性约束。
+Ø Not null: 非空约束。是指该列允许不允许有空值出现，如选择了Not null表
+明该列不允许有空值出现。
+Ø 语法中的数据类型在SQL标准中有定义
+
+【第19页】
+Ø在SQL-92标准中定义的数据类型
+qchar (n) :固定⻓度的字符串
+qvarchar (n) :可变⻓字符串
+qint
+:整数
+//
+有时不同系统也写作integer
+qnumeric (p，q) :固定精度数字，⼩数点左边p位，右边p-q位
+qreal
+:浮点精度数字//有时不同系统也写作float(n)，⼩数点后保留n位
+qdate :⽇期(如2003-09-12)
+qtime
+: 时间(如23:15:003)
+q…
+Ø现⾏商⽤DBMS的数据类型有时和上⾯有些差异，请注意;
+Ø和⾼级语⾔的数据类型，总体上是⼀致的，但也有些差异。
+
+【第20页】
+⽰例：定义学⽣表Student
+Create
+Table  Student ( S# char(8) not null , Sname char(10),
+Ssex  char(2),  Sageinteger, D# char(2), Sclass char(6) );
+integer,
+⽰例：定义课程表Course
+Create Table Course ( C# char(3) , Cname char(12), Chours  Credit  
+float(1),  T# char(3) );
+SCT
+Student  
+Course
+同学可⾃⼰定
+义其他的表！
+接着可向表中
+追加元组了！
+
+【第21页】
+2024/6/6
+21
+创建表（续）
+例1. 创建学生表
+CREATE TABLE student
+( sno 
+NUMERIC(6,0) NOT NULL,
+sname CHAR(8) NOT NULL,
+age 
+NUMERIC(3,0),
+sex 
+CHAR(2),
+bplace CHAR(20));
+例2. 创建职工表
+CREATE TABLE Employee
+( Eno       CHAR(4) NOT NULL UNIQUE ,    /* Eno取唯一值*/
+Ename  CHAR(8) NOT NULL ,
+Sex       CHAR(2) NOT NULL default('男'),  /* Sex的默认值为“男”*/
+Age       INT NULL ,
+Is_Marry CHAR(1) NULL ,
+Title       CHAR(6) NULL ,
+Dno       CHAR(2) NULL );
+
+【第22页】
+2024/6/6
+22
+v 其中，自定义的表名或者列名若是由包含多个单词的词组所构成，
+则必须选择使用中括号（[ ]）或者双引号（“ ”）将此表名或列名
+括起在内
+v 例3：创建职工表2，其中表名或者列名包含多个单词构成：
+CREATE TABLE Employee2
+( [Employee no]       CHAR(4) NOT NULL UNIQUE , 
+"Employee name"  CHAR(8) NOT NULL ,
+Sex         CHAR(2) NOT NULL ,
+Age         INT NULL ,
+Is_Marry CHAR(1) NULL ,
+Title         CHAR(6) NULL ,
+Dno         CHAR(2) NULL );
+
+【第23页】
+2024/6/6
+23
+v 语法2：
+CREATE TABLE <表名>
+[AS <查询子句>]
+[(<列名>[NOT NULL], …)]
+[CLUSTER <簇名> (<列名>, …)];
+v 例4. 创建女学生girl_student关系
+CREATE TABLE girl_student
+AS 
+SELECT sno, sname, age
+FROM    student
+WHERE sex=‘女’；
+在查询结果基础上
+创建新表
+MSSQL SERVER中实现：
+SELECT sno, sname, age
+INTO   girl_student
+FROM student
+WHERE sex=‘女’；
+
+【第24页】
+2024/6/6
+24
+v 语法
+DROP TABLE <表名1>[，<表名2>]
+v 说明
+" 此语句一执行，指定的表即从数据库中删除（表被删除，表在数据
+字典中的定义也被删除）
+" 此表上建立的索引和视图也被自动删除
+" DROP TABLE语句一次可以删除多个表，多表间用逗号逗开。
+v DROP与DELETE区别：
+" DELETE清空表中所有数据行
+v 例5. 删除表
+DROP TABLE student;
+删除表
+
+【第25页】
+2024/6/6
+25
+v 语句
+ALTER TABLE <表名>
+[ ADD <列名><数据类型>[列的完整性约束]]| [ ADD <表级完整性约束>]
+[ ALTER COLUMN <列名><新的数据类型>] 
+[ DROP COLUMN <列名>] 
+[ DROP CONSTRAINT <表级完整性约束名>];
+v 说明
+" ADD：为表增加一新列或者表级完整性约束，具体规定与CREATE 
+TABLE的相当，但新列必须允许为空（除非有默认值)；
+" DROP COLUMN：在表中删除一个原有的列；
+" ALTER COLUMN：修改表中原有列的数据类型；通常，当该列上有
+约束定义时，不能修改数据类型。
+" DROP CONSTRAINT：删除原有的表级约束。
+修改表结构
+
+【第26页】
+2024/6/6
+26
+v 对表增加列
+" 语法：ALTER语句的形式：
+ALTER TABLE <表名>
+ADD <列名> <数据类型> [NULL | NOT NULL], …;
+"例6. 在student表中增加一列address
+ALTER TABLE student
+ADD address CHAR(50);
+"例7. 在Employee表中增加一列负责人Emgr
+ALTER TABLE Employee
+ADD Emgr CHAR(4) NULL;
+如果原表中已存在数据，则新定义的列必须设置为NULL
+（除非有默认值）;
+修改表结构（续）
+
+【第27页】
+2024/6/6
+27
+v 对表删除列
+"语法：ALTER语句的形式：
+ALTER TABLE <表名>
+DROP COLUMN <列名> ,…;
+"例8. 删除新添列address
+ALTER TABLE student
+DROP COLUMN address;
+修改表结构（续）
+
+【第28页】
+2024/6/6
+28
+v 增大某个列
+" 语法：
+ALTER TABLE <表名>
+ALTER COLUMN <列名> [<数据类型>] [NULL | NOT NULL], …;
+" 例9. 修改student表的列bplace的数据类型。
+ALTER TABLE student
+ALTER COLUMN bplace CHAR(30);
+（条件：列为空。改变数据类型和缩短长度）
+" 例10. 修改列Emgr的数据类型为CHAR(10)。
+ALTER TABLE Employee
+ALTER COLUMN Emgr CHAR(10);
+/* 只修改数据类型，不可修改列名*/
+如果列中已存在数据，则不能改变数据类型，
+且不能缩短列的宽度，但可以增大列宽
+修改表结构（续）
+
+【第29页】
+2024/6/6
+29
+修改表中约束（详见第4章）
+v 添加约束
+"语法：
+v ALTER TABLE <表名>
+ADD [CONSTRAINT <约束名> ]<具体约束>,…;
+" 例11. 新增唯一性约束
+ALTER TABLE student
+ADD CONSTRAINT uq_bplace UNIQUE(bplace);
+v 删除约束
+"语法：
+v ALTER TABLE <表名>  
+DROP [CONSTRAINT] <约束名> ,…;
+" 例12. 删除新增的唯一性约束
+ALTER TABLE student
+DROP CONSTRAINT uq_bplace;
+
+【第30页】
+2024/6/6
+30
+*重命名
+v ATLER TABLE语句不支持列名的修改，如若需要重命名列名，
+则可以使用系统存储过程sp_rename来完成。
+v 例13. 将表Emoployee2重命名为Emp。
+EXEC sp_rename ‘Employee2’,‘Emp’ ;
+v 系统存储过程sp_rename也可将表名进行重命名。
+v 例14. 将Emp表中的列Employee name重命名为Ename。
+EXEC sp_rename 'Emp.[Employee name]',‘Ename’,'column';
+
+【第31页】
+q 向Table中追加新的元组：Insert
+q 修改Table中某些元组中的某些属性的值: Update
+q 删除Table中的某些元组: Delete
+q 对Table中的数据进行各种条件的检索: Select
+Ø DML通常由⽤户或应⽤程序员使⽤，访问经授权的数
+据库
+建⽴数据库
+Ø包括两件事：定义数据库和表（使⽤DDL）,向表中追加元组（使⽤DML）
+ØDML:
+Data
+Manipulation Language
+
+【第32页】
+2024/6/6
+32
+3.3.1 基本的数据更新
+v 数据的更新操作：
+"表中增加元组INSERT
+"修改表中数据UPDATE
+"删除元组DELETE
+"含有子查询的数据更新（3.5）
+"通过视图修改数据（3.6.4）
+
+【第33页】
+2024/6/6
+33
+INSERT插入数据
+v 基本语法：
+" INSERT [ INTO ]
+" table_or_view [ ( column_list ) ]
+" { data_values | select_statement }
+v 有两种方式：
+" 使用VALUES关键字直接给各列赋值
+" 使用SELECT子句，把从其他表或视图中选取的数据插入。
+v 必须注意：
+" 输入项的顺序和数据类型必须与表中列的顺序和数据类型相一致。
+" 可以不给全部列赋值，但没有赋值的列必须是可以空的列、有默认值的
+列、IDENTITY列等。
+" 字符型和日期型值插入时要用单引号括起来。
+
+【第34页】
+2024/6/6
+34
+v 语句基本格式
+INSERT INTO <表名>[（<属性名清单>）]
+VALUES (<常量清单>)；
+v 说明
+" 若有<属性名清单>，则<常量清单>中各常量为新记录中这些属性的
+对应值(根据语句中的位置一一对应)。
+但该表定义时，说明为NOT NULL，且无默认值的列必须出现在<属
+性名清单>中，否则将出错。
+" 若无<属性名清单>，则<常量清单>必须按照表中属性的顺序，为每
+个属性列赋值(每个属性列上都应有值)。
+" <常量清单>中，字符串常量和日期型常量要用单引号（英文符号）
+括起来。
+在指定表中插入一行数据
+
+【第35页】
+⽰例：追加学⽣表中的元组
+Insert Into Student
+Values ( ‘98030101’ , ‘张三’, ‘男’, 20，’03’，
+‘980301’);
+Insert Into Student ( S#, Sname, Ssex, Sage, D# , Sclass)  
+Values ( ‘98030102’ , ‘张四’, ‘女’, 20，’03’，
+‘980301’);
+/*所有列名省略，须与定义或存储的列名顺序一致
+⽰例：追加课程表中的元组
+Insert Into Course
+Values ( ‘001’ , ‘数据库’, 40, 
+6，’001’);
+Insert Into Course(Cname, C#, Credit, Chours, T#) /*如列名未省略，须与语句中列名的顺序一致
+Values (‘数据库’, ‘001’, 6, 40, ‘001’);
+
+【第36页】
+2024/6/6
+36
+v 例1. 在Employee表中插入一职工记录。
+INSERT INTO Employee
+VALUES ('2002' ,'胡一兵' ,'男',38,'1','工程师','01');
+v 例2. 在Employee表中插入一新职工：宋文彬，编号
+为2003，男。
+INSERT INTO Employee (Eno,Ename,Sex)
+VALUES ('2003','宋文彬','男');
+在指定表中插入一行数据（续）
+
+【第37页】
+2024/6/6
+37
+UPDATE修改数据
+v 语句格式
+UPDATE <表名>
+SET <列名> = <表达式> [,<列名>=<表达式>]n
+[WHERE <条件>]；
+v 说明
+"本语句可修改符合<条件>记录中一个或多个列的值。
+"可使用SET子句指定要被修改的列及修改后的数据。
+"当没有WHERE子句指定修改条件时，表中所有行的指定
+列将被修改为SET子句给出的新数据。
+"新数据可以是指定的常量或表达式，或是来自于其他表
+的数据（通过SELECT子句）。
+
+【第38页】
+2024/6/6
+38
+UPDATE修改数据（续）
+v 例3. 在工资表中，将所有职工的基本工资都增加50。
+UPDATE Salary
+SET Basepay = Basepay + 50;           /* 修改多个元组的值*/
+v 例4. 将职工“胡一兵”修改为“胡一民”。
+UPDATE Employee
+SET Ename= '胡一民'
+WHERE Ename= '胡一兵';                /* 修改某个元组的值*/
+
+【第39页】
+2024/6/6
+39
+DELETE删除数据
+v 语句格式
+DELETE FROM <表名>  [WHERE<条件>]
+v 说明
+" 若有指定WHERE<条件>项时，则从表中删除满足WHERE子句条件的
+所有元组。
+" 若无WHERE<条件>项时，将删除<表名>中的所有记录。但是，该表的
+结构还在（包括属性、约束等），只是没有了记录，是个空表而已。
+v 例5. 从职工表中删除Eno(职工号)为1003的记录。
+DELETE FROM Employee
+WHERE Eno= '1003';                /* 删除某个元组的值*/
+v 例6. 删除Employee中的所有记录。
+DELETE FROM Employee;           /* 删除多个元组的值*/
+v *使用TRUNCATE TABLE语句
+
+【第40页】
+2024/6/6
+40
+3.3.2 数据查询
+v “查询”的含义：从数据库中获取数据
+v 最基本方式：使用SELECT语句
+v 大多数SELECT都需要包括以下几个成分来
+描述返回什么样的结果集：
+"结果集中包含哪些列，即要从表中取哪些列的数
+据
+"以何种条件从表中取数据，即表中的行被包含在
+结果集中的条件
+"要查询的哪些表，以及表之间的逻辑关系
+"结果集中的行的排列顺序
+
+【第41页】
+2024/6/6
+41
+SELECT语句
+v最基本的SELECT语句形式：
+SELECT select_list
+FROM table_source
+" select_list指定了结果集中要包含的列的名称（表达式），多列间
+用逗号隔开
+" table_source要查询的表名
+
+【第42页】
+2024/6/6
+42
+SELECT语句的完整语法
+SELECT [ DISTINCT | ALL ] select_list
+FROM table_source
+[ WHERE search_condition ]
+[ GROUP BY group_by_expression
+[ HAVING search_condition ] ]
+[ ORDER BY order_expression [ ASC | DESC ] ]
+
+【第43页】
+2024/6/6
+43
+检索数据
+参数
+描述
+ALL
+表示表中所有行都将被返回，包括重复的行(它是缺
+省的，不用显式写出)
+DISTINCT
+只有不重复的行被返回。这个子句在每个SELECT子
+句中只可使用一次
+FROM
+给出SELECT 语句中指定的域是从哪个表中获取的
+WHERE
+给出从表中选取记录的条件
+GROUP BY
+查询返回的行将按照某一个列或某几个列的值分组
+HAVING
+给出结果集中每个组必须满足的条件。该子句只和
+GROUP BY 子句联合使用
+ORDER
+BY
+将查询结果根据某个域或某几个域的值按照升序（
+ASC）或者降序（DESC）排列
+
+【第44页】
+2024/6/6
+44
+查询表中列
+v 查询关系中所有信息
+v 例1. 查询职工表的所有信息。
+SELECT Eno, Ename, Sex, Age, Is_Marry, Title
+FROM Employee
+v 该语句可以用以下语句代替：
+SELECT *                               -- “*”代替表中的所有列
+FROM Employee
+v 指定要查询的列
+v 例2. 查询职工的职称。
+SELECT Title
+FROM Employee;
+
+【第45页】
+2024/6/6
+45
+消除结果集中重复行
+v 使用DISTINCT关键字可去掉结果集中的重复行。
+v 例3.消除结果集中重复行
+SELECT Title
+FROM Employee;
+SELECT DISTINCT Title
+FROM Employee;
+SELECT ALL Title
+FROM Employee;
+
+【第46页】
+2024/6/6
+46
+在结果集中使用常量和计算值
+v 例4.在结果集中使用常量
+SELECT '职工序号：',Eno, '职称：',Title
+FROM Employee;
+v 例5. 查询职工的姓名、出生年份、职称
+SELECT Ename, 2010-Age, Title
+FROM Employee;
+--改进
+SELECT Ename, 2010-Age AS [Year of Birth], Title
+FROM Employee;
+--等价于
+SELECT Ename, [Year of Birth]= 2010-Age, Title
+FROM Employee;
+无列名
+
+【第47页】
+2024/6/6
+47
+给结果集中的列指定别名
+v 例6.给结果集中的列指定别名
+SELECT Eno as '职工序号',Title as '职称'
+FROM Employee;
+--等价于
+SELECT '职工序号'=Eno, '职称'=Title
+FROM Employee;
+
+【第48页】
+2024/6/6
+48
+条件选择查询
+v 基本语法：
+SELECT select_list
+FROM table_source
+WHERE search_condition 
+(选择查询结果的条件）
+v SQL Server 支持比较、范围、列表、字符串
+匹配等选择方法。
+
+【第49页】
+2024/6/6
+49
+基于比较条件选择查询结果
+v WHERE子句的查询条件可以是比较布尔表达式。
+v 例7.查询所有工程师的姓名、年龄。
+SELECT Ename, Age
+FROM Employee
+WHERE Title= '工程师';
+v 例8.查询所有在2009年底前结束的项目情况。
+SELECT *
+FROM Item
+WHERE End_date<'1/1/2010';
+
+【第50页】
+2024/6/6
+带限制条件的检索
+v 除了比较符，可以在WHERE子句中使用下列
+关键字
+关键字
+含义
+IN
+判断值是否在所给的范围内
+NOT IN
+判断值是否不在所给的范围内
+LIKE
+判断值是否与一个给定的值相似
+NOT LIKE
+判断值是否与一个给定的值不相似
+IS NULL
+判断值是否为空
+IS NOT NULL
+判断值是否不为空
+AND
+判断是否满足AND两边所给的条件
+OR
+判断是否满足OR 两边所给的条件中的一个
+BETWEEN…AND
+判断值是否在所给的值之间
+NOT BETWEEN…AND
+判断值是否不在所给的值之间
+
+【第51页】
+2024/6/6
+51
+基于范围条件选择查询结果
+v 使用BETWEEN…AND…关键字
+v 例9.查询所有在2008-2009年间启动的项目情况。
+SELECT *
+FROM Item
+WHERE Start_date between '1/1/2008' and '12/31/2009';
+v 例10.从Salary表中查找Basepay（基本工资）不在500和
+700间的元组，显示符合条件元组的所有属性。
+SELECT *
+FROM Salary 
+WHERE Basepay NOT BETWEEN 500 AND 700;
+
+【第52页】
+基于列表条件选择查询结果
+v 使用IN关键字可以查询符合列表中任何一个值的列。
+v IN关键字后面的列表可以是一个常量，也可以是另外
+查询产生的结果（被称为子查询）。
+v 例11.查询具有工程师及以上职称的职工姓名及所在
+部门号。
+SELECT Ename, Dno
+FROM Employee
+WHERE Title= '工程师'  OR  Title= '高工';
+--等价于
+SELECT Ename, Dno
+FROM Employee
+WHERE Title  IN ('工程师' , '高工');
+
+【第53页】
+2024/6/6
+53
+基于字符串匹配条件选择查询结果
+v 使用LIKE运算符可以完成对字符串的模糊匹配。
+v 基本语法：
+SELECT select_list
+FROM table_sourse
+WHERE EXPRESSION LIKE ‘STRING’
+v 其中，EXPRESSION为用作选择条件的列或表达式
+v 指定的字符串中可以包含通配符，包括：
+" %：代表任意多个字符。例：%jing
+" _（下划线）：代表单个字符。例：_ouse
+" [ ]：代表指定范围内的单个字符。例：[mh]ouse
+" [^ ]：代表不再指定范围内的单个字符。例：[^mh]ouse
+
+【第54页】
+2024/6/6
+54
+v 例12.从Item表中查找Iname（项目名称）中包含“性能
+研究”的项目名称。
+SELECT Iname
+FROM Item
+WHERE Iname LIKE '%性能研究%';
+v 例13.查找电子邮件地址在hotmail.com上的职工
+SELECT Ename, Dno
+FROM Employee
+WHERE Emailaddress LIKE '%@hotmail.com'
+v 例14.查看电话号码第一位不是8的部门名
+SELECT Dno, Dname
+FROM Employee
+WHERE Phone LIKE '[^8]%'
+
+【第55页】
+2024/6/6
+55
+基于未知值（NULL）选择查询结果
+v NULL表示空值（一种未知的、不存在的或不可应用的数据）。
+v 可以用IS NULL 或IS NOT NULL 来检验一列是否为空值。
+v 例15. 查询所有有电子邮件地址的客户
+SELECT Ename, Dno
+FROM Employee
+WHERE Emailaddress IS NOT NULL
+v 例16. 从项目表中选取鉴定日期不为空的记录。
+SELECT *
+FROM Item 
+WHERE Check_date IS NOT NULL;
+
+【第56页】
+2024/6/6
+56
+基于多个条件选择查询结果
+v WHERE子句中，也可以使用逻辑运算符来
+连接多个条件。
+v 主要有逻辑运算符：
+"AND
+"OR
+"NOT
+
+【第57页】
+2024/6/6
+57
+v 例17. 
+SELECT *
+FROM Salary 
+WHERE  ( Basepay BETWEEN 600 AND 700 ) 
+AND ( Service IN (600.0,700.0,1300.0,2500.0) )
+AND Eno LIKE '100_';
+v 本例将从Salary表中选取符合下列条件的元组：
+"①基本工资在600与700之间；
+"②津贴为600，700，1300，2500；
+"③职工号前三位为100。
+
+【第58页】
+2024/6/6
+58
+查询结果排序
+v 默认情况：查询结果集中行的顺序是在表中的顺序。
+v 通过ORDER BY子句，可以改变查询结果的显示顺序。
+v 语法：
+SELECT select_list 
+FROM table_source
+WHERE search_condition
+ORDER BY order_expression [ASC | DESC]
+v order_expression是排序依据的列名或列号
+v ASC表示按升序，DSEC表示按降序，默认为ASC
+
+【第59页】
+2024/6/6
+59
+查询结果排序（续）
+v *返回有限的结果
+v 语法：
+TOP n [ PRECENT ]
+" N表示返回查询到的前n个结果
+" 使用了precent参数，则n为百分比
+v 例18. 查询经费最高的三个项目名称及其经费。
+SELECT top 3 Iname,Outlay 
+FROM Item
+ORDER BY Outlay DESC
+
+【第60页】
+2024/6/6
+60
+v ORDER BY 子句中也可以包括多个列
+v 例19. 查询结果首先以部门号的降序排序，
+部门号相同的再以年龄的顺序排列。
+SELECT * 
+FROM Employee
+WHERE Is_Marry=1
+ORDER BY Dno DESC, Age;
+查询结果排序（续）
+
+【第61页】
+2024/6/6
+61
+聚合函数
+v 聚合函数计算表中数据的总和，得到统计的结果。
+v SQL Server提供以下聚合函数：
+"COUNT([DISTINCT/ALL]*)
+--统计结果中元组个数
+"COUNT([DISTINCT/ALL]<列名>) --统计一列上元组个数
+"MAX(<列名>)
+--给出一列上的最大值
+"MIN(<列名>) 
+--给出一列上的最小值
+"SUM([DISTINCT/ALL]<列名>) 
+--给出一列上值的总和(只对数值型)
+"AVG([DISTINCT/ALL]<列名>)  
+--给出一列上值的平均值(只对数值型)
+
+【第62页】
+2024/6/6
+62
+v 例20.统计记录数。
+/* 得到employee表的记录数*/
+SELECT count(*) FROM employee;
+/* 得到职称的个数*/
+SELECT count(title) FROM employee; 
+/* 得到职称的种类数*/ 
+SELECT count(distinct title) FROM employee; 
+v 例21. 求所有项目的总经费、平均经费、最高经费和最低经费。
+SELECT sum(Outlay) AS 总经费,avg(Outlay) AS 平均经费,
+max(Outlay) AS 最高经费,min(Outlay) AS 最低经费
+FROM Item;
+
+【第63页】
+2024/6/6
+63
+数据分组
+GROUP BY
+HAVING
+*COMPUTE 与COMPUTE BY
+
+【第64页】
+2024/6/6
+64
+GROUP BY
+v 可以按一定的条件对查询的结果进行分组，再对每一
+组数据计算统计信息。
+v 对查询结果分组的目的是为了细化集函数的作用对象。
+"一般地，当SELECT的<目标列表达式[别名]清单>中有聚合
+函数(COUNT、SUM等)时，才使用GROUP BY子句。
+v 语法：
+SELECT select_list
+FROM table_source
+WHERE search_condition
+GROUP BY group_by_expression
+
+【第65页】
+2024/6/6
+65
+GROUP BY子句使用注意点：
+v SELECT子句中目标的一致性
+不能把多行目标与聚合函数混在一起使用。
+SELECT Title,COUNT(Eno) FROM Employee;
+多行目标
+聚合函数
+v 选择列表中的列包含在：①聚合函数②GROUP BY 子句
+v 上例修正：
+v 例22. 查询所属于每种职称的职工人数。
+SELECT Title, COUNT(Eno) 
+FROM Employee
+GROUP BY Title;
+句子语法错误!
+
+【第66页】
+2024/6/6
+66
+v 例23. 把职工表中元组按部门分组，计算平均年龄；
+输出部门号和平均年龄两列。
+SELECT Dno, AVG(Age) AS Average_Age
+FROM Employee
+GROUP BY Dno;
+v 可以按多个条件分组
+v 例24.查询每个部门内每种职称的职工人数。
+SELECT Dno,Title, COUNT(Eno) 
+FROM Employee
+GROUP BY Dno,Title
+ORDER BY Dno,Title Desc;
+
+【第67页】
+2024/6/6
+67
+HAVING短语的使用
+SELECT [ DISTINCT | ALL ] select_list
+FROM table_source
+[ WHERE search_condition ]
+[ GROUP BY group_by_expression
+[ HAVING search_condition ] ]
+[ ORDER BY order_expression [ ASC | DESC ] ]
+
+【第68页】
+2024/6/6
+68
+HAVING短语
+v 用来向使用GROUP BY子句的查询中添加数据过滤
+准则。
+v WHERE子句和HAVING短语的区别：
+"作用条件不同
+v WHERE子句作用于基表或视图，从中选择满足条件的元组；
+v HAVING短语作用于组，从中选择满足条件的组。
+"执行时间不同
+v GROUP BY子句分组之前先去掉不满足WHERE中条件的行；
+v 而HAVING短语中的条件在分组之后被应用。
+"聚合函数使用不同
+v HAVING短语可以在条件中包含聚合函数；
+v 但WHERE子句不可包含。
+
+【第69页】
+2024/6/6
+69
+v 例25.查询部门平均年龄小于40的部门及部门平均年龄。
+SELECT Dno , AVG(Age) AS Average_Age
+FROM Employee
+GROUP BY Dno
+HAVING AVG(Age)<40;
+v 例26. 查询部门总基本工资发放高于2000的部门名称及具体发
+放总数。
+SELECT Dname,SUM(Basepay)
+FROM Employee E,Department D,Salary S
+WHERE E.Eno=S.Eno and E.Dno=D.Dno
+GROUP BY Dname
+HAVING SUM(Basepay)>2000
+
+【第70页】
+2024/6/6
+70
+*COMPUTE与COMPUTE BY
+v COMPUTE子句可以用来计算汇总数据。
+v COMPUTE的查询返回了两个结果集，一个包含数据
+的详细记录，另一个为汇总记录。
+v COMPUTE BY可以按给定的条件将查询结果分组，
+并为每组计算汇总数据。
+v 若使用COMPUTE BY，则必须使用ORDER BY，后
+面出现的列的顺序必须与ORDER BY后出现的顺序
+相同，或者是他的子集。
+
+【第71页】
+2024/6/6
+71
+v 例27. 查询在2008年以后立项的项目经费，并统计
+总经费
+SELECT SUM(Outlay)
+FROM Item
+WHERE  Start_date>‘1/1/2008’;
+v 对比查询结果
+SELECT Ino,Iname,Outlay
+FROM Item
+WHERE Start_date>'1/1/2008'
+COMPUTE SUM(Outlay) ;
+
+【第72页】
+2024/6/6
+72
+v 例28. 查询每个部门人数及每个部门总基本工资发放情况。
+SELECT Dname,COUNT(Ename),SUM(Basepay)
+FROM Employee E,Department D,Salary S
+WHERE E.Eno=S.Eno and E.Dno=D.Dno
+GROUP BY Dname
+v 对比查询结果
+SELECT Dname,Ename,Basepay
+FROM Employee E,Department D,Salary S
+WHERE E.Eno=S.Eno and E.Dno=D.Dno
+ORDER BY Dname
+COMPUTE COUNT(Ename),SUM(Basepay) BY Dname
+
+【第73页】
+Create Database
+DDL
+DML
+SQL：结构化查询语言
+Create Table
+Insert… Into…
+Select..From..Where..
+Update..Set..Where..
+Delete..From..Where..
+单表查询
+多表查询
+模糊查询
+分组聚集查询
+结果排序
+结果去重复
+条件书写
+回顾
+
+【第74页】
+Select 列名
+[[, 列名] … ]
+From 表名
+[ Where
+检索条件] ;
+回顾与练习：SELECT-FROM-WHERE
+SQL提供了结构形式⼀致但功能多样化的检索语句Select
+ØSelect 的简单语法形式：
+Ø语义：从表名所给出的表中，查询出满足检索条件的元组，并按给定的列名
+及顺序进行投影显示。
+Ø相当于：  列名, … , 列名(  检索条件(表名))
+ØSelect语句中的select … , from… , where…,等被称为子句，在以上基本形
+式基础上会增加许多构成要素，也会增加许多新的子句，满足不同的需求。
+
+【第75页】
+⽰例：检索学⽣表中所有学⽣的信息
+Select
+S#, Sname, Ssex, Sage, Sclass, D#  
+From Student ;
+Select
+*
+From Student ;
+//如投影所有列，则可以用*来简写
+⽰例：检索学⽣表中所有学⽣的姓名及年龄
+//投影出某些列
+Select
+Sname, Sage  
+From Student ;
+⽰例：检索学⽣表中所有年龄⼩于等于19岁的学⽣的年龄及姓名
+//投影的列可以重新排定顺序
+Select
+Sage, Sname  
+From Student
+Where
+Sage <= 19;
+
+【第76页】
+检索条件的书写
+Ø逻辑运算符用and , or,  not 来表示, 同时也要注意运算符的优先次序及括
+弧的使用。书写要点是注意对自然语言检索条件的正确理解。
+⽰例：检索教师表中所有⼯资少于1500元或者⼯资⼤于2000元并且是03系的教师姓名？
+Select
+Tname  From Teacher
+Where
+Salary < 1500 or Salary > 2000 and D# = ’03’;
+Select
+Tname  From Teacher
+Where
+(Salary < 1500 or Salary > 2000) and D# = ’03’;
+?
+
+【第77页】
+⽰例：求或者学过001号课程, 或者学过002号课程的学⽣的学号
+Select
+S#
+From SC  
+Where
+C# = ‘001’OR
+C#=‘002’;
+⽰例：求既学过001号课程, ⼜学过002号课程的学⽣的学号?
+Select
+S#
+From
+SC
+Where
+C# = ‘001’
+AND
+C#=‘002’;
+//正确的SQL语句在后面的示例中讲解
+?
+
+【第78页】
+结果唯⼀性问题
+关系模型不允许出现重复元组。但现实DBMS，却允许出现重复元组，但也允许无重复元组。
+Ø在Table中要求无重复元组是通过定义Primary key或Unique来保证的;而在
+检索结果中要求无重复元组, 是通过DISTINCT保留字的使用来实现的。
+⽰例：在选课表中，检索成绩⼤于80分的所有学号
+Select
+S#  From SC
+Where
+Score > 80 ;
+//有重复元组出现，比如一个同学两门以上课程大于80
+Select
+DISTINCT S#  From SC
+Where
+Score > 80;
+//重复元组被DISTINCT过滤掉，只保留一份
+注意结果的差别！
+
+【第79页】
+Ø在SQL标准中和许多现流行的DBMS中，空值被用一种特殊的符号Null来
+标记，使用特殊的空值检测函数来获得某列的值是否为空值。
+Ø空值检测
+is[not ]null
+测试指定列的值是否为空值
+⽰例：找出年龄值为空的学⽣姓名
+Select
+Sname
+From
+Student  
+Where
+Sage
+is
+null ;
+Ø注意：上例条件不能写为Where
+Sage =
+null;空值是不能进行运算的
+为什么要写成
+IS NULL⽽不能写成
+= NULL?
+结果处理涉及空值问题
+
+【第80页】
+Ø 现行DBMS的空值处理小结
+q
+除is [not] null之外，空值不满足任何查找条件
+q
+如果null参与算术运算，则该算术表达式的值为null
+q
+如果null参与比较运算，则结果可视为false。在SQL-92中可看成
+unknown
+q
+如果null参与聚集运算，则除count(*)之外其它聚集函数都忽略null
+⽰例：
+Select
+AVG(Score)
+From
+SC;
+上例的值(参考右图)为73.5 = (92 + 55)/2。
+⽰例：
+Select
+COUNT(*)
+From
+SC;
+上例的值为3。
+
+【第81页】
+结果排序问题
+DBMS可以对检索结果进行排序，可以升序排列，也可以降序排列。
+ØSelect语句中结果排序是通过增加order by子句实现的
+order by
+列名
+[asc | desc]
+Ø意义为检索结果按指定列名进行排序，若后跟asc或省略，则为升序；若
+后跟desc, 则为降序。
+Ø⽰例：按学号由⼩到⼤的顺序显⽰出所有学⽣的学号及姓名
+Select
+S#, Sname
+From
+Student  Order  By S# ASC ;
+Ø⽰例：检索002号课⼤于80分的所有同学学号并按成绩由⾼到低顺序显⽰
+Select
+S#
+From
+SC
+Where
+C# = ‘002’ and 
+Score > 80  Order  By
+Score DESC ;
+
+【第82页】
+模糊查询问题
+比如检索姓张的学生，检索张某某；这类查询问题，Select语句是通过在检
+索条件中引入运算符like来表示的
+Ø含有like运算符的表达式
+列名
+[not ] like “字符串”
+Ø 找出匹配给定字符串的字符串。其中给定字符串中可以出现%, _等匹配符.
+Ø 匹配规则：
+q “%”
+q “_”
+q “[ ]”
+q “ \ ”
+匹配零个或多个字符
+匹配任意单个字符
+匹配指定范围内的单个字符。
+转义字符，用于去掉一些特殊字符的特定含义，使其被作为普通
+字符看待, 如用“\%”去匹配字符%，用\_ 去匹配字符_，使用ESCAPE 关键字
+定义转义符。
+
+【第83页】
+⽰例：检索所有姓张的学⽣学号及姓名
+Select  
+Where
+S#, Sname  
+Sname Like
+From Student  
+‘张%’ ;
+⽰例：检索名字不为张某某的所有同学姓名
+Select
+Sname
+From Student  
+Where
+Sname Not Like ‘张_ _’;
+⽰例：检索最后⼀位学号为“2”或“3”的所有同学姓名
+Select
+Sname
+From Student  
+Where
+S#  Like ‘%[2-3]’;
+⽰例：检索名字包含“[”的所有同学姓名
+Select
+Sname
+From Student  
+Where
+Sname Like ‘%\[%’ ESCAPE ‘\’;
+
+【第84页】
+（1）结果计算
+ØSelect-From-Where语句中，Select子句后面不仅可是列名，而且可是一
+些计算表达式或聚集函数，表明在投影的同时直接进行一些运算
+Select  
+From
+[ Where
+列名| expr | agfunc(列名) [[, 列名| expr | agfunc(列名) ] … ]
+表名1 [, 表名2 … ]
+检索条件] ;
+Øexpr可以是常量、列名、或由常量、列名、特殊函数及算术运算符构成的算术运算
+式。特殊函数的使用需结合各自DBMS的说明书（如TOP number[percent]）
+Øagfunc()是一些聚集函数
+结果计算与聚集计算问题
+
+【第85页】
+⽰例：求有差额(差额>0)的任意两位教师的薪⽔差额
+Select
+T1.Tname as TR1, T2.Tname as TR2, T1.Salary – T2.Salary 
+From
+Teacher  T1,  Teacher
+T2
+Where
+T1.Salary > T2.Salary;
+⽰例：依据学⽣年龄求学⽣的出⽣年份，当前是2022年
+Select
+S.S#, S.Sname, 2022 – S.Sage+1 as Syear  From
+Student S;
+
+【第86页】
+（2）聚集函数
+ØSQL提供了五个作用在简单列值集合上的内置聚集函数agfunc, 分别是：
+COUNT、SUM、AVG、MAX、MIN
+ØSQL聚集函数的参数类型、结果类型与作用如下：
+求个数
+求和
+求平均
+求最⼤
+求最⼩
+
+【第87页】
+⽰例：求教师的⼯资总额
+Select
+Sum(Salary)
+From
+Teacher;
+⽰例：求计算机系教师的⼯资总额
+Select
+Sum(Salary)
+From
+Teacher T, Dept  
+Where
+Dept.Dname = ‘计算机’ and Dept.D# = T.D#;
+⽰例：求数据库课程的平均成绩
+Select
+AVG(Score)
+From
+Course C, SC  
+Where
+C.Cname = ‘数据库’and C.C# = SC.C#;
+
+【第88页】
+分组查询问题
+SQL可以将检索到的元组按照某一条件进行分类，具有相同条件值
+的元组划到一个组或一个集合中，同时处理多个组或集合的聚集运算。
+Ø分组的基本语法：
+Select  
+From
+[ Where
+列名| expr | agfunc(列名) [[, 列名| expr | agfunc(列名) ] … ]
+表名1 [, 表名2 … ]
+检索条件]
+[ Group by
+分组条件] ;
+Ø分组条件可以是列名1, 
+列名2, …
+
+【第89页】
+示例：求每一个学生的平均成绩
+Select
+S#, AVG(Score) From SC  
+Group by S#;
+Ø上例是按学号进行分组，即学号相同
+的元组划到一个组中并求平均值
+示例：求每一门课程的平均成绩
+Select
+C#, AVG(Score) From SC  
+Group by C#;
+Ø
+上例是按课号进行分组，即课号相同的
+元组划到一个组中并求平均值
+
+【第90页】
+示例：求不及格课程超过两门的同学的学号
+Select
+S# From SC
+Where
+Score < 60
+and
+Count(*)>2 Group by S#;
+?
+
+【第91页】
+Ø聚集函数是不允许用于Where子句中的：Where子句是对每一元组进行条件
+过滤，而不是对集合进行条件过滤
+分组过滤：若要对集合(即分组)进行条件过滤，即满足条件的集合/分组留
+下，不满足条件的集合/分组剔除。
+ØHaving⼦句，⼜称分组过滤⼦句。需要有Group by子句支持，换句话说，
+没有Group by子句，便不能有Having子句。
+Select  
+From
+[ Where
+列名| expr | agfunc(列名) [[, 列名| expr | agfunc(列名) ] … ]
+表名1 [, 表名2 … ]
+检索条件]
+[ Group by
+分组条件[ Having 分组过滤条件] ] ;
+
+【第92页】
+⽰例：求不及格课程超过两门的同学的学号
+Select
+S#
+From
+SC  
+Where
+Score < 60
+Group by
+S#
+Having
+Count(*)>2;
+⽰例：求有10人以上不及格的课程号
+Select
+C#
+From
+SC  Where
+Score < 60
+Group by
+C#
+Having
+Count(*)>10;
+
+【第93页】
+每一分组检查满
+足与否的条件要
+用Having ⼦句
+表达。
+注意:不是每一行
+都检查，所以使
+用Having子句一
+定要有Group by  
+子句
+HAVING子句与WHERE子句表达条件的区别
+每一行都要检查满足
+与否的条件要用
+WHERE⼦句表达
+
+【第94页】
+Ø分组查询仍需要注意语义问题
+示例：求有两门以上不及格课程同学的学号及其平均成绩
+Select
+S#, Avg(Score)
+From
+SC  
+Where
+Score < 60
+Group by
+S#
+Having
+Count(*)>2;
+Ø该SQL语句求出的是“该同学那几门不及格课程的平均成绩”，而不是“该同
+学所有课程的平均成绩” 。因此正确写法为：
+Select
+S#, Avg(Score)
+From
+SC  
+Where
+S#
+in
+( Select
+S#
+From
+SC  
+Where
+Score < 60
+Group by S#
+Having
+Count(*)>2 )  
+Group by S#
+;
+?
+
+【第95页】
+多表联合检索可以通过连接运算来完成，⽽连接运算⼜可以通过
+⼲义笛卡尔积后再进⾏选择运算来实现。
+ØSelect 的多表联合检索语句
+列名
+[ [, 列名] … ]
+Select
+F r o m
+Where
+表名1 , 表名2,
+…
+检索条件;
+Ø 相当于  列名, … , 列名(  检索条件(表名1   表名2   …))
+Ø 检索条件中要包含连接条件，通过不同的连接条件可以实现等值连接、不
+等值连接等不同连接
+多表联系查询----表连接
+
+【第96页】
+96
+交叉连接(Cross Join)
+v 也叫非限制连接，将两个表不加任何约束的组合起来，
+即两个表的广义笛卡尔积。
+v 交叉连接后得到的结果集的行数是两个被连接表的行数
+的乘积。
+v 语法：
+SELECT select_list
+FROM table1 CROSS JOIN table2
+" 或
+SELECT select_list
+FROM table1 , table2
+v 例30. 两个表的笛卡尔乘积查询。
+SELECT e.Ename, e.Title, e.Dno, d.Dno, d.Dname 
+FROM Employee e, Department d;
+输出结果见P65
+
+【第97页】
+2024/6/6
+97
+多表联系查询----表连接
+v 连接条件
+"用来连接两个表的条件称为连接条件或连接谓词。
+"常用格式
+v [<表名1>.]<列名1>  <比较运算符>  [<表名2>.]<列名2>
+比较运算符：=、>、<、>=、<=、!=
+v [<表名1>.]<列名1> BETWEEN [<表名2>.]<列名2>
+AND [<表名2>.]<列名3>
+v 连接字段
+"连接谓词中的列名称为连接字段。
+"连接条件中的各连接字段类型必须是可比的，但不必是相
+同的。
+
+【第98页】
+2024/6/6
+98
+连接查询的类型
+v 内连接查询
+v 等值连接（含自然连接）查询
+v 非等值连接查询
+v 自身连接查询
+v 外连接查询
+v 复合条件连接查询
+
+【第99页】
+SQL高级语法：
+Select
+列名
+[ [, 列名] … ]
+From 表名1 [NATURAL]
+[ INNER | { LEFT | RIGHT | FULL} [OUTER]] JOIN 表名2
+{ ON
+连接条件}
+[ Where 检索条件] … ;
+Ø上例的连接运算由两部分构成：连接类型和连接条件
+连接类型(四者选一)
+inner join
+left outer join  right 
+outer join  full 
+outer join
+连接条件(二者选一)
+natural
+on <连接条件>
+
+【第100页】
+Ø连接中使用natural
+q
+出现在结果关系中的两个连接关系的元组在公共属性上取值相等，且公
+共属性只出现一次
+Ø连接中使用on <连接条件>
+q
+出现在结果关系中的两个连接关系的元组取值满足连接条件，且公共属
+性出现两次
+
+【第101页】
+2024/6/6
+101
+内连接(Inner Join)
+v 指定了INNER关键字的连接是内连接，内连接按照ON所指
+定的连接条件合并两个表，返回满足条件的行。
+v 内连接是系统默认的，可以省略INNER关键字。使用内连接
+后仍可使用WHERE子句指定条件。
+v 如：<表名1>.<列名1>  <>  <表名2>.<列名2>
+
+【第102页】
+2024/6/6
+102
+等值连接(EquiJoin)
+v 使用“=”关系将表连接起来的查询，其查询结果
+中列出被连接表中的所有列，包括其中的重复列。
+v 等值连接
+"连接运算符为= 的连接操作
+v [<表名1>.]<列名1> = [<表名2>.]<列名2>
+"任何子句中引用表1和表2中同名属性时，都必须加表名
+前缀。引用唯一属性名时可以加也可以省略表名前缀。
+v 表的连接条件经常采用“主码=外部码”的形式。
+
+【第103页】
+2024/6/6
+103
+v 语法：
+SELECT select_list
+FROM table1 [INNER] JOIN table2
+ON table1.column1=table2.column2
+和
+SELECT select_list
+FROM table1 ，table2
+WHERE table1.column1=table2.column2
+
+【第104页】
+⽰例：按“001”号课成绩由⾼到低顺序显⽰所有学⽣的姓名(⼆表连接)
+Select
+Sname
+From Student, SC
+Where
+Student.S# = SC.S# and SC.C# = ‘001’
+Order By Score DESC;
+Ø多表连接时，如两个表的属性名相同，则需采用表名. 属性名方式来限定
+该属性是属于哪一个表
+⽰例：按‘数据库’课成绩由⾼到低顺序显⽰所有同学姓名(三表连接)
+Select
+Sname From Student, SC, Course
+Where
+Student.S# = SC.S# and SC.C# = Course.C# and Cname = ‘数据库’
+Order By Score DESC;
+
+【第105页】
+2024/6/6
+105
+自然连接(Natural Join)
+v 等值连接的一种特殊情况，自动判断相同名称的列，
+而后形成匹配，把目标列中重复的属性列去掉。
+"<表名1>.<列名1>  =  <表名2>.<列名2> 
+v 有些DBMS产品，如SQL Server，不支持
+NATURAL JOIN连接符，故不能直接实现自然连接。
+
+【第106页】
+2024/6/6
+106
+v 例31. 在例28中，只输出Employee表和Department表中部
+门号相等的连接元组。
+SELECT Ename, Title, e.Dno, d.Dno, Dname 
+FROM Employee e INNER JOIN Department d  
+ON e.Dno=d.Dno;
+v 也可以在WHERE子句中指定连接类型和条件：
+SELECT Ename, Title, e.Dno, d.Dno, Dname 
+FROM Employee e , Department d 
+WHERE e.Dno=d.Dno;
+v 对上例，用自然连接实现。
+SELECT Ename, Title, e.Dno, Dname 
+FROM Employee e INNER JOIN Department d  
+ON e.Dno=d.Dno;
+
+【第107页】
+重名之处理
+Ø连接运算涉及到重名的问题，如两个表中的属性重名，连接的两个表重名
+(同一表的连接)等，因此需要使用别名以便区分
+Øselect中采用别名的方式
+列名as 列别名[ [, 列名as 列别名] … ]
+Select
+F r o m
+Where
+表名1 as 表别名1, 表名2 as 表别名2,
+…
+检索条件;
+Ø上述定义中的as 可以省略
+Ø当定义了别名后，在检索条件中可以使用别名来限定属性
+对FROM子句中的表名指定别名
+
+【第108页】
+2024/6/6
+108
+对FROM子句中的表名指定别名
+v 例29.对FROM子句中的表名指定别名
+SELECT e.Eno,e.Ename
+FROM Employee AS e
+SELECT e.Eno,e.Ename
+FROM Employee e
+
+【第109页】
+2024/6/6
+109
+非等值连接(Non-EquiJoin)
+v非等值连接
+"连接运算符不为= 的连接操作
+v 形式：
+" [<表名1>.]<列名1> <比较运算符> [<表名2>.]<列名2>
+比较运算符：>、<、>=、<=、!=（<>）
+"[<表名1>.]<列名1> BETWEEN [<表名2>.]<列名2>
+AND [<表名2>.]<列名3>
+
+【第110页】
+2024/6/6
+110
+v 例32. 假设存在一张薪级表，查询每个职工的薪水及所属薪
+级情况。
+v --创建薪水级别表
+CREATE TABLE Salgrade
+( Grade decimal(1),
+Lowsalary decimal(6,2),
+Highsalaty decimal(6,2) );
+v --非等值连接求解
+SELECT Eno, Basepay, Grade
+FROM Salary, Salgrade
+WHERE Basepay BETWEEN Lowsalary AND Highsalaty;
+
+【第111页】
+Ø ⽰例：求有薪⽔差额的任意两位教师
+Select
+T1.Tname as Teacher1, T2.Tname as Teacher2  
+From
+Teacher  T1,  Teacher T2
+Where
+T1.Salary > T2.Salary ;
+Ø ⽰例：求年龄有差异的任意两位同学的姓名
+Select
+S1.Sname as Stud1, S2.Sname as Stud2  
+From
+Student  S1, Student S2
+Where
+S1.Sage > S2.Sage ;
+Ø 有时表名很长时，为书写条件简便，也定义表别名，以简化书
+写
+
+【第112页】
+⽰例：求既学过“001”号课⼜学过“002”号课的所有学⽣的
+学号
+Select
+S1.S#
+From  SC S1, SC
+S2  Where
+S1.S# = S2.S# and
+S1.C#=‘001’
+and
+S2.C#=‘002 ;
+⽰例：求“001”号课成绩⽐“002”号课成绩⾼的所有学⽣的
+学号
+Select
+S1.S#
+From  SC
+S1, SC
+S2  Where
+S1.S# = S2.S# and
+S1.C#=‘001’
+and
+S2.C#=‘002’ and S1.Score > S2.Score;
+S1
+S2
+
+【第113页】
+2024/6/6
+113
+外连接
+v 指定了OUTER关键字的为外连接，外连接的
+结果表不但包含满足连接条件的行，还包括
+相应表中的所有行。
+v 外连接中，可以只限制一个表，而对另一个
+表不加限制（即所有的行都出现在结果集
+中）。
+v 外连接分为左外连接、右外连接和全外连接。
+
+【第114页】
+2024/6/6
+114
+v 左外连接：结果表中除了包括满足连接条件的行外，还包括左表的所有行。
+v 语法：
+SELECT select_list
+FROM table1 LEFT [OUTER] JOIN table2
+ON table1.column1=table2.column2
+v 右外连接：结果表中除了包括满足连接条件的行外，还包括右表的所有行。
+v 语法：
+SELECT select_list
+FROM table1 RIGHT [OUTER] JOIN table2
+ON table1.column1=table2.column2
+v 全外连接结果表中除了包括满足连接条件的行外，还包括两个表的所有行。
+v 语法：
+SELECT select_list
+FROM table1 FULL [OUTER] JOIN table2
+ON table1.column1=table2.column2
+
+【第115页】
+2024/6/6
+115
+v 例33. 如果该部门没有职工，即没有任何一个职工元组与其
+匹配，则相应部门的职工补以空值。
+SELECT d.Dno, d.Dname , e.Eno, e.Ename, e.Title 
+FROM Department d LEFT JOIN Employee e
+ON d.Dno=e.Dno;
+--等价于
+SELECT d.Dno, d.Dname , e.Eno, e.Ename, e.Title 
+FROM Employee e, Department d 
+WHERE e.Dno=*d.Dno;
+v 现有高版本的SQL Server中外连接的用法不支持“=*”或
+“*=”。
+v *有些DBMS的外连接符可能为符号“＋”（例如Oracle）或
+者其他字符。
+
+【第116页】
+2024/6/6
+116
+v 例34. 查询有员工存在的部门的员工人数。
+SELECT  d.Dname, COUNT(Eno) 
+FROM Department d  JOIN Employee e
+ON d.Dno=e.Dno
+GROUP BY d.Dname
+v 例35. 查询所有部门的员工人数。
+/*包含无员工存在的部门相关数据*/
+SELECT  d.Dname, COUNT(Eno) 
+FROM Department d LEFT JOIN Employee e
+ON d.Dno=e.Dno
+GROUP BY d.Dname 
+等价于
+COUNT(*)
+不等价于
+COUNT(*)
+
+【第117页】
+2024/6/6
+117
+自身连接(Self-Join)
+v 连接操作是在同一张表内进行自身连接，即将同一个表的不同
+行连接起来。
+v 可看作一张表的两个副本之间进行的连接。
+v 必须为表指定两个别名，使之在逻辑上成为两张表。
+v 由于所有属性名都是同名属性，因此必须使用别名前缀
+v 例36.查询Employee表中的同姓的职工。
+SELECT e1.Ename,e2.Ename
+FROM Employee e1 JOIN Employee e2 
+ON left(e1.Ename,1)=left(e2.Ename,1)
+WHERE e1.Eno<e2.Eno
+
+【第118页】
+2024/6/6
+118
+集合运算
+v SELECT语句的查询结果是元组的集合，所以多个
+SELECT语句的结果可进行集合操作。
+v 集合操作视具体的RDBMS而定。
+"并操作（UNION）
+"交操作（INTERSECT）
+"差操作（EXCEPT或MINUS）
+
+【第119页】
+Ø基本语法形式：
+子查询
+{ Union [ALL]
+|
+Intersect
+[ALL]
+|
+Except [ALL]
+子查询}
+Ø通常情况下自动删除重复元组：不带ALL。若要保留重复的元组，则要
+带ALL。
+假设⼦查询1的⼀个元组出现m次，⼦查询2的⼀个元组出现n次
+，则该元组在：
+ü子查询1
+Union
+ALL
+子查询2 ，出现m + n次
+ü子查询1
+IntersectALL
+子查询2 ，出现min(m,n)次
+ü子查询1
+Except
+ALL
+子查询2 ，出现max(0, m – n)次
+注意带ALL和
+不带ALL的差别
+
+【第120页】
+SQL并运算
+ØUNION中的每一个查询所涉及的列必须具有相同的列数，相同的
+数据类型，并以相同的顺序出现。
+Ø最后结果集中的列名来自第一个SELECT语句。
+Ø若UNION中包含ORDER BY子句，则将对最后的结果集排序。
+⽰例：求学过002号课的同学或学过003号课的同学学号
+Select
+S#
+From
+SC
+Where
+C# = ‘002’
+UNION
+Select
+S#
+From
+SC
+Where
+C# = ‘003’;
+Ø上述语句也可采用如下不用UNION的方式来进行
+Select
+S#
+From
+SC
+Where
+C# = ‘002’
+OR
+C# = ‘003’;
+
+【第121页】
+Ø 但有时也不能完全转换成不用UNION的方式
+⽰例：已知两个表
+Customers(CID, Cname, City, Discnt)  
+Agents(AID, Aname, City, Percent)
+求客户所在的或者代理商所在的城市
+Select
+City From
+Customers
+UNION
+Select
+City From
+Agents ;
+利⽤SQL语⾔实现关系代数操作
+
+【第122页】
+SQL交运算
+⽰例：求既学过002号课，⼜学过003号课的同学学号
+Select
+S#
+From
+SC
+Where
+C# = ‘002’
+INTERSECT
+Select
+S#
+From
+SC
+Where
+C# = ‘003’;
+Ø上述语句也可采用如下不用INTERSECT的方式来进行
+Select
+S#
+From
+SC
+Where
+C# = ‘002’
+and
+S#
+IN  (Select
+S#
+From
+SC
+Where C# = ‘003’);
+Ø交运算符Intersect并没有增强SQL的表达能力，没有Intersect，SQL也
+可以用其他方式表达同样的查询需求。只是有了Intersect更容易表达一些，
+但增加了SQL语言的不唯一性。
+
+【第123页】
+SQL差运算
+⽰例：假定所有学⽣都有选课，求没学过002号课程的学⽣学号
+Ø不能写成如下形式：
+Select
+S#
+From
+SC
+Where
+C# <> ‘002’
+Ø可写成如下形式：所有学生减掉学过002号课的学生
+Select
+DISTINCT
+S#
+From
+SC  EXCEPT
+Select
+S#
+From
+SC Where
+C# = ‘002’;
+
+【第124页】
+Ø前述语句也可不用EXCEPT的方式来进行
+ØSelect
+DISTINCT S# From SC SC1 
+ØWhere
+not exists ( 
+Ø
+Select
+*
+From SC
+Ø
+Where
+C# = ‘002’ and
+S# = SC1.S#) ;
+Ø差运算符Except也没有增强SQL的表达能力，没有Except，SQL也可以用
+其他方式表达同样的查询需求。只是有了Except更容易表达一些，但增加
+了SQL语言的不唯一性。
+
+【第125页】
+Ø UNION运算符是Entry-SQL92的一部分
+Ø INTERSECT、EXCEPT运算符是Full-SQL92的一部分
+Ø 它们都是Core-SQL99的一部分，但有些DBMS并不支持这些
+运算，使用时要注意。
+
+【第126页】
+v 为什么需要嵌套查询？
+Ø
+现实中，很多情况需要进行下述条件的判断
+v
+q
+集合成员资格
+v
+ü某一元素是否是某一个集合的成员
+v
+q
+集合之间的比较
+v
+ü某一个集合是否包含另一个集合等
+v
+q
+集合基数的测试
+ü测试集合是否为空
+ü测试集合是否存在重复元组
+Ø⼦查询：出现在Where⼦句中的Select语句被称为⼦查询(subquery) , ⼦
+查询返回了⼀个集合，可以通过与这个集合的⽐较来确定另⼀个查询集合。
+Ø分为不相关⼦查询和相关⼦查询
+嵌套查询（也叫子查询）
+
+【第127页】
+2024/6/6
+127
+不相关子查询
+Ø 内层查询独立进行，没有涉及任何外层查询相关信息的子
+查询
+v 子查询可以多次嵌套。
+v 分为两种：子查询返回单个值和子查询返回一个值列表。
+v 返回单个值，该值被外部查询的比较操作使用，该值可以
+是子查询中使用集合函数得到的值。
+v 返回一个值列表，该列表被外部查询的IN、NOT IN、ANY
+或ALL比较操作使用。
+# IN表示属于，NOT IN表示不属于。
+# ANY和ALL用于一个值与另一个组值的比较。
+
+【第128页】
+2024/6/6
+128
+v 例38.  查询所有参加了200901项目的职工号、姓名、职称。
+SELECT Eno, Ename, Title
+FROM Employee
+WHERE Eno IN
+( SELECT Eno
+FROM Item_emp
+WHERE Ino= '200901' );
+v 例39.  查询职工1010所没有参加的所有项目情况。
+SELECT  *
+FROM Item
+WHERE Ino NOT IN
+( SELECT Ino
+FROM Item_emp
+WHERE Eno='1010' );
+使用IN的嵌套查询
+
+【第129页】
+2024/6/6
+129
+v 如果能确定子查询的返回结果，总是单个值，则可以用“=”
+代替“IN”。
+v 例40.  查询参加了项目“相变光盘性能研究”的职工情况。
+SELECT  *
+FROM Employee
+WHERE Eno IN
+( SELECT Eno
+FROM Item_emp
+WHERE Ino = 
+( SELECT Ino 
+FROM Item
+WHERE Iname='相变光盘性能研究' ) );
+
+【第130页】
+2024/6/6
+130
+使用比较运算符的嵌套查询
+v 比较运算符<、=、>、<=、>=、<>等，均可以作为嵌套查询
+的连接词。
+v 例41.  查询所有大于平均年龄的职工的姓名和年龄。
+SELECT Ename,Age
+FROM Employee
+WHERE Age >
+( SELECT AVG(Age)
+FROM Employee );
+v WHERE子句中不得直接出现聚合函数。
+错误用法：
+SELECT Ename,Age
+FROM Employee
+WHERE Age >AVG(Age);
+
+【第131页】
+2024/6/6
+131
+v 比较运算符还可以与ANY或ALL一起使用，ANY只要与子查
+询中一个值符合即可，ALL要与子查询中所有值相符合。
+v 例42. 查询非02部门的年龄大于2号部门任意职工年龄的职
+工信息，并按年龄的升序排序
+SELECT * 
+FROM Employee
+WHERE Age > ANY
+( SELECT Age
+FROM Employee
+WHERE Dno='02' ) 
+AND Dno<>'02'
+ORDER BY Age;
+等价于：
+Age>(SELECT MIN(Age)
+FROM Employee
+WHERE Dno='02' )
+
+【第132页】
+2024/6/6
+132
+带有ANY或ALL谓词的子查询
+v ANY和ALL谓词有时可以用聚合函数实现
+v ANY与ALL与集函数的对应关系
+=
+<>或!=
+<
+<=
+>
+>=
+ANY
+IN
+--
+<MAX
+<=MAX
+>MIN
+>= MIN
+ALL
+--
+NOT IN
+<MIN
+<= MIN
+>MAX
+>= MAX
+
+【第133页】
+2024/6/6
+133
+使用BETWEEN的嵌套查询
+v [NOT] BETWEEN…AND也可以作为嵌套查询的连
+接词。
+v 例43. 查询基本工资介于职工号为“1010”的工资和
+800元之间的职工号。
+SELECT FIRST.Eno
+FROM Salary FIRST 
+WHERE Basepay BETWEEN
+( SELECT Basepay 
+FROM Salary SECOND
+WHERE SECOND.Eno= '1010' ) 
+AND 800;
+
+【第134页】
+2024/6/6
+134
+v 一、表中数据的增删改操作
+INSERT,UPDATE,DELETE
+v 二、表中数据查询
+SELECT—— 单表查询完整的语法：
+SELECT [ALL/DISTINCT] select-list
+FROM table_name | view_name
+[WHERE <条件>]
+[GROUP BY <列名清单>[HAVING <条件>]]
+[ORDER BY <列名清单>]；
+v 三、WHERE子句中使用的关键字：
+IN、BETWEEN、LIKE
+回顾
+
+【第135页】
+2024/6/6
+135
+v 四、SELECT INTO的用法：
+SELECT  <列名表>  
+INTO <新表名>
+FROM  <旧表名>
+[ WHERE……]
+[ ORDER BY……]
+v 五、多表连接查询—连接条件
+"交叉连接：Cross Join（不用）
+"等值/非等值连接
+"内连接（自然连接）：Inner Join
+（最常用）
+"外连接：
+v 左外连接：Left  Outer Join
+v 右外连接：Right  Outer Join 
+v 全外连接：Full Outer Join
+回顾
+
+【第136页】
+2024/6/6
+136
+v 六、自身连接
+"连接同一张表的两次(或更多)查询
+v 七、不相关子查询
+"使用IN
+"使用Between
+"使用比较运算符
+"使用Any或All
+v 八、相关子查询
+"使用Exists的嵌套查询
+回顾
+
+【第137页】
+2024/6/6
+137
+相关子查询
+v 执行依赖于外部查询，多数情况下是在子查
+询的WHERE子句中引用了外部查询的表。
+v 可以使用EXISTS关键字来判断查询结果中是
+否存在数据，EXISTS在一个子查询至少返回
+一行时成立。
+
+【第138页】
+2024/6/6
+138
+v例44.  查询参加了项目的职工号、姓名。
+SELECT Eno, Ename
+FROM Employee
+WHERE EXISTS
+( SELECT *
+FROM Item_Emp
+WHERE Eno=Employee.Eno);
+
+【第139页】
+2024/6/6
+139
+查询参加了项目的
+职工号、姓名。
+SELECT Eno, Ename
+FROM Employee e
+WHERE EXISTS
+( SELECT *
+FROM Item_Emp
+WHERE Eno=e.Eno );
+相关子查询过程
+找出e 表第一条记录
+将e表该记录的eno 
+传递给内查询
+内查询是否为空
+NO
+取e表该记录的eno、ename
+放到结果集中
+找出e 表下一条记录
+YES
+非空
+True
+取出放结果集
+
+【第140页】
+2024/6/6
+140
+v 例45. 查询参加了全部项目的职工号和职工姓名。
+/*在Item_Emp表中不存在职工没有参加的项目的相关记录*/
+SELECT Eno,Ename 
+FROM Employee 
+WHERE NOT EXISTS
+( SELECT *
+FROM Item
+WHERE NOT EXISTS
+( SELECT * 
+FROM Item_Emp
+WHERE Item_Emp.Eno=Employee.Eno
+AND Item_Emp.Ino=Item.Ino ));
+
+【第141页】
+2024/6/6
+141
+v 例46. 查询参加了全部2009项目的职工号和职工姓名。
+SELECT Eno,Ename 
+FROM Employee 
+WHERE NOT EXISTS
+( SELECT *
+FROM Item
+WHERE Item.Ino like '2009%' and NOT EXISTS
+( SELECT * 
+FROM Item_Emp
+WHERE Item_Emp.Eno=Employee.Eno
+AND Item_Emp.Ino=Item.Ino));
+
+【第142页】
+2024/6/6
+142
+v
+例. 检索选修了赵三⽼师主讲课程的所有同学的姓名
+v
+Select
+DISTINCT
+Sname From Student
+Where  exists ( Select *
+From SC, Course, Teacher
+Where
+SC.C# = Course.C#
+and SC. S# = Student.S#
+and Course.T# = Teacher.T# and Tname = ‘赵三’) ;
+Ø 不加not形式的Exists谓词可以不用，比如上面例子就可以直接写成：
+Ø Select
+DISTINCT
+Sname From Student, SC, Course, Teacher 
+Where
+SC.C# = Course.C# and
+SC.S# = Student.S#
+and
+Course.T# = Teacher.T# and Tname = ‘赵三’ ) ;
+
+【第143页】
+2024/6/6
+143
+例：已知SPJ(Sno, Pno, Jno, Qty), 其中Sno供应商号，Pno零件号，
+Jno⼯程号，Qty数量，列出⾄少⽤了供应商S1供应的全部零件的⼯程号
+SPJ1
+Select
+DISTINCT Jno From SPJ  
+Where not exists
+( Select *  From
+SPJ SPJ2  
+Where SPJ2.Sno = ‘S1’ and
+not exists
+//不存在
+//有一种S1的零件
+//该工程没用过
+( Select
+*
+From
+SPJ SPJ3  Where
+SPJ3.Pno = SPJ2.Pno
+and
+SPJ3.Jno = SPJ1.Jno ) );
+
+【第144页】
+2024/6/6
+144
+在查询的基础上创建新表
+v 使用SELECT INTO 语句可以在查询的基础上创建新表，
+SELECT INTO语句首先创建一个新表，然后用查询的结果
+填充新表。
+v 语法：
+SELECT select_list
+INTO new_table
+FROM table_source
+[ WHERE search_condition   ]
+[ GROUP BY group_by_expression ]
+[HAVING search_condition ]
+[ORDER BY order_expression [ ASC | DESC ] ]
+
+【第145页】
+2024/6/6
+145
+v 例47. 为所有具有高工职称的职工新建一张职
+工表。
+SELECT Eno, Ename, Dno
+INTO senior_engineer
+FROM Employee
+WHERE Title='高工';
+
+【第146页】
+2024/6/6
+146
+v 一、表中数据的增删改操作
+INSERT,UPDATE,DELETE
+v 二、表中数据查询
+SELECT—— 单表查询完整的语法：
+SELECT [ALL/DISTINCT] select-list
+FROM table_name | view_name
+[WHERE <条件>]
+[GROUP BY <列名清单>[HAVING <条件>]]
+[ORDER BY <列名清单>]；
+v 三、WHERE子句中使用的关键字：
+IN、BETWEEN、LIKE
+回顾
+
+【第147页】
+2024/6/6
+147
+v 四、SELECT INTO的用法：
+SELECT  <列名表>  
+INTO <新表名>
+FROM  <旧表名>
+[ WHERE……]
+[ ORDER BY……]
+v 五、多表连接查询—连接条件
+"交叉连接：Cross Join（不用）
+"等值/非等值连接
+"内连接（自然连接）：Inner Join
+（最常用）
+"外连接：
+v 左外连接：Left  Outer Join
+v 右外连接：Right  Outer Join 
+v 全外连接：Full Outer Join
+回顾
+
+【第148页】
+2024/6/6
+148
+v 六、自身连接
+"连接同一张表的两次(或更多)查询
+v 七、不相关子查询
+"使用IN
+"使用Between
+"使用比较运算符
+"使用Any或All
+v 八、相关子查询
+"使用Exists的嵌套查询
+回顾
+
+【第149页】
+2024/6/6
+149
+索引
+v 索引的概念和作用
+v 索引的类型
+v 如何使用创建和管理索引
+
+【第150页】
+书籍、词典/字典中的词汇表(索引表)
+ü词汇表等包含两部分：词条，词条在⽂件中的⻚码
+ü词汇表等通常按词条进⾏某种⽅式的排序
+ü目的是通过对“有序的⼩数据量的词汇表”的快速查找，发现词条在“⼤数
+据量书籍中”出现的位置。
+索引的概念
+
+【第151页】
+索引是定义在基本表(Table)基础之上，有助于无需检查所有记录而快速定
+位所需记录的一种辅助存储结构，由一系列存储在磁盘上的索引项(index  
+entries)组成，每一索引项又由两部分构成:
+ü索引字段：由Table中某些列(通常是⼀列)中的值串接而成。索引中通常存储了
+索引字段的每一个值(也有不是这样的)。索引字段类似于词典中的词条。
+ü⾏指针：指向Table中包含索引字段值的记录在磁盘上的存储位置。行指针类似于词
+条在书籍、词典中出现的⻚码。
+l存储索引项的文件为索引⽂件，相对应，基本表又称为主⽂件
+Index-field
+pointer
+Table
+主⽂件
+Index
+索引⽂
+件
+索引的概念
+
+【第152页】
+2024/6/6
+152
+索引
+v
+SQL Server的索引是一种物理结构，它能够提供一种以一
+列或多列的值为基础迅速查找表中行的能力。
+v
+索引可在定义表时创建，也可在定义表之后的任何时候创
+建。
+v
+索引可创建在一列或多列的组合上，也可在数据库表的多
+个列上建立不同的索引。
+
+【第153页】
+2024/6/6
+153
+索引
+v 是否有效地设计了索引(index)，是影响SQL Server性能的
+因素之一。
+v 一个设计良好的索引可以显著地提高SQL Server的性能，
+明显提高存储表的访问速度。
+v 索引文件是一种辅助存储结构，其存在与否不改变存储表的
+物理存储结构。
+
+【第154页】
+2024/6/6
+154
+v 在建立了索引的列作为查询条件时，索引能大大地提高
+SQL语句的执行速度。
+" 如果把一个基本库表比作一本书，索引就好像书的目录，通过查询目录，
+可找到相关章节的页号，从而可迅速地找到那一节内容。不同的是，基本
+表可建立不止一个索引，它可按不同的属性或表达式建立多个索引。
+v 索引还有能够加速ORDER BY和GROUP BY语句的执行、
+强制行的唯一性等优点。
+索引的作用
+
+【第155页】
+155
+索引的使用示例
+用全表扫描方法检查主码唯一性
+全表扫描缺点：十分耗时
+为避免对基本表进行全表扫描，RDBMS核心一般都在主码
+上自动建立一个索引
+
+【第156页】
+2024/6/6
+156
+索引的使用示例
+通过B+树索引查找基本表中是否已经存在新的主码值，
+可以提高效率
+n 如果新插入记录的主
+码值是25
+Ø 通过主码索引，从
+B+树的根结点开始
+查找
+Ø 读取3个结点：
+根结点（51）
+中间结点（12 30）
+叶结点（15 20 25）
+Ø 该主码值已经存在，
+不能插入这条记录
+使用索引检查主码唯一
+
+【第157页】
+2024/6/6
+157
+v 索引虽重要，也不是越多越好，因为：
+"创建索引要花费时间和占用存储空间。
+"索引虽加快了检索速度，却减慢了数据修改的速度。
+v 可以不考虑建立索引的场所：
+"很少或从来不作为查询条件的列。
+"在小表中通过索引查找行可能会比简单的进行全表扫描
+还慢。
+"只从很小的范围内取值的列。
+索引使用的场所
+
+【第158页】
+2024/6/6
+158
+索引使用的场所
+v 在考虑是否在列上创建索引时，应考虑该列
+在查询中起到什么样的作用，以下情况适合
+创建索引：
+"用作查询条件的列，比如主键。
+"频繁按范围搜索的列，比如WHERE 
+quantity>=5 and quantity<=20。
+"连接中频繁使用的列。
+
+【第159页】
+2024/6/6
+159
+索引的类型
+v 按照索引的结构划分：
+"聚簇索引
+"非聚簇索引
+v 按照索引实现的功能划分：
+"唯一性索引
+"非唯一性索引
+
+【第160页】
+2024/6/6
+160
+v 聚簇索引
+"行的物理存储顺序与索引顺序完全相同，即索引
+的顺序决定了表中行的存储顺序。
+"每个表只能有一个聚簇索引。
+"聚簇索引有利于范围搜索。
+"如表中没有创建其他的聚簇索引，则在表的主键
+列上自动创建聚簇索引。
+索引的类型
+
+【第161页】
+2024/6/6
+161
+v 非聚簇索引
+" 索引的逻辑顺序并不等同于表中行的存储顺序。
+" 索引仅仅记录指向表中行的位置的指针。
+" 非聚簇索引作为与表分离的对象存在，可为表
+中每一个常用于查询的列定义非聚簇索引。
+" 很适合于那种直接匹配单个条件的查询，不太
+适合于返回大量结果的查询。
+" 为一个表建立索引默认都是非聚簇索引，在一
+列上设置唯一性约束也自动在该列上创建非聚
+簇索引。
+索引的类型
+
+【第162页】
+2024/6/6
+162
+cno cname
+credit
+1
+database 4
+2
+os
+3
+3
+c
+4
+cno
+cname
+credit
+1
+database 3
+2
+os
+3
+3
+c
+4
+4
+mis
+2
+未建立聚簇索引，
+往表中添加一条记录：
+4
+mis
+2
+
+【第163页】
+2024/6/6
+163
+在cname列上
+建立聚簇索引
+cname
+c
+database
+os
+建立聚集索引后，
+往表中添加一条记录后形成的新表：
+cno
+cname
+credit
+3
+c
+4
+1
+database 3
+4
+mis
+2
+2
+os
+3
+mis
+4
+mis
+2
+
+【第164页】
+2024/6/6
+164
+v 唯一性索引
+"一个唯一性索引能够保证在创建索引的列或多列
+的组合上不包括重复的数据。
+"聚簇索引和非聚簇索引都可以是唯一性索引。
+"在创建主键约束和唯一性约束的列上会自动创建
+唯一性索引。
+索引的类型
+
+【第165页】
+2024/6/6
+165
+在cname列上
+建立唯一性索引
+cname
+database
+os
+c
+建立唯一性索引后，
+往表中添加一条记录后形成的新表：
+cno
+cname
+credit
+1
+database 3
+2
+os 
+3
+3
+c
+4
+4
+os
+5
+os
+4
+os
+5
+
+【第166页】
+2024/6/6
+166
+创建索引
+v 语句格式：
+CREATE [UNIQUE] [CLUSTERED|NONCLUSTERED]  INDEX <索引名>  
+ON <表名> （<列名>[<次序>] [，<列名>[<次序>]]…);
+v 说明：
+" ASC升序，DESC降序，缺省为ASC。
+" CLUSTERED为聚簇索引，一个表只有一个。
+" NONCLUSTERED非聚簇索引。
+" UNIQUE表示唯一索引。
+v 例1. 按课程表的课程名建立索引。
+CREATE UNIQUE INDEX course_name 
+ON course(cname);
+v 例2. 为职工表建立一索引，首先以部门值排序，部门相同时，再以职工号
+降序排序。
+CREATE INDEX IX_Emp
+ON Employee (Dno , Eno DESC);
+
+【第167页】
+2024/6/6
+167
+删除索引
+v 语句格式
+DROP INDEX <索引名1>[，<索引名2>]
+v 说明
+"本语句将删除规定的索引。该索引在数据字典中的描述
+也将被删除。
+"<索引名>：规定使用“表名|视图名.索引名”的格式。
+v 例3. 删除IX_Emp索引。
+DROP INDEX Employee.IX_Emp;
+
+【第168页】
+2024/6/6
+168
+*查看索引
+v Enterprise Manager
+v T-SQL的系统存储过程sp_helpindex，结果
+返回该表上所有索引的名称、类型和建索引
+的列。
+v 例4. 查看Employee表上所有索引的相关信息
+exec sp_helpindex Employee
+
+【第169页】
+2024/6/6
+169
+回顾
+vSQL语言
+"DDL用于创建、更改或删除数据库对象
+vCREATE、ALTER、DROP
+"索引的概念——聚集索引和非聚集索引
+"DML用于操纵数据库对象（如表）
+vSELECT,INSERT,UPDATE,DELETE
+
+【第170页】
+2024/6/6
+170
+SQL语言初步（五）
+表内数据的增删改
+（带子查询部分）
+（3.5节）
+
+【第171页】
+2024/6/6
+171
+INSERT与子查询的结合
+v 格式：
+INSERT INTO<表名>[<属性名清单>]
+（子查询）；
+v 把子查询的结果插入指定的<表名>中。这样的一条INSERT
+语句，可以一次插入多条元组。
+v 例1. 假设存在一张表Engineer（字段延用Employee表中相
+关字段）：往该表里插入所有具有工程师以上职称的职工相
+关信息。
+INSERT INTO Engineer
+SELECT Eno,Ename,Title,Dno
+FROM Employee
+WHERE Title in ('工程师','高工');
+
+【第172页】
+2024/6/6
+172
+UPDATE与子查询的结合
+v 格式：
+UPDATE <表名>
+SET <列名>=<表达式>[，<列名>=<表达式>]n
+[WHERE<带有子查询的条件表达式>]
+v 本语句执行时，将修改使<带有子查询的条件表达式>为真的所
+有元组。
+v 例2. 使参加“200802”项目的职工，工资表中津贴的值都增加
+200。
+UPDATE Salary
+SET Rest=Rest+200
+WHERE Eno IN
+( SELECT Eno
+FROM Item_Emp
+WHERE Ino= '200802');
+
+【第173页】
+2024/6/6
+173
+SET子句中使用子查询
+v 例3. 将所有工程师的工资改为职工的平均工资。
+UPDATE Salary
+SET Basepay=
+( SELECT AVG(Basepay) 
+FROM Salary )
+WHERE Eno IN
+( SELECT Eno 
+FROM Employee
+WHERE Title='工程师' )
+
+【第174页】
+2024/6/6
+174
+DELETE与子查询的结合
+v 格式：
+DELETE FROM <表名>
+[WHERE <带有子查询的条件表达式>]
+v 本语句将删除所有使<带有子查询的条件表达式>为真的所有
+元组。
+v 例4.  从Item_Emp表中，删除“丁为国”的所有元组。
+DELETE FROM Item_Emp
+WHERE Eno=
+( SELECT Eno
+FROM Employee
+WHERE Ename='丁为国' );
+
+【第175页】
+2024/6/6
+175
+SQL语言初步（六）
+视图
+（3.6节）
+
+【第176页】
+2024/6/6
+176
+v 回顾：SQL对三级模式的对应支持
+用户1
+视图
+基本表1
+基本表2
+用户2
+存储文件
+外模式
+模式
+内模式
+用户
+外模式
+模式
+内模式
+DB
+内模式的基本单
+位，存储基本表
+外模式的基本单
+位，与基本表有
+本质区别
+返回
+
+【第177页】
+2024/6/6
+177
+视图
+v 基于某个查询结果的虚表。
+v 定义视图的查询语句可以从一个表、多个表
+或者其他视图中引用数据。
+v 视图所对应的数据并不实际存储在数据库中，
+数据库中只存储视图的定义。
+v 可对已定义的视图进行查询操作，但对视图
+的更新操作（增、删、改）有一定限制。
+
+【第178页】
+2024/6/6
+178
+视图的作用
+v 视图是用户一级的数据观点，由于有了视图，
+使数据库系统具有下列优点：
+"视图提供了逻辑数据独立性。
+"通过视图来集中、简化、自定义自己对数据库的
+感知。
+"数据的安全保护功能：可以作为一种安全机制，
+使用户只能通过视图访问数据，而不给用户访问
+基表的权限。
+
+【第179页】
+2024/6/6
+179
+创建视图
+v 在数据库中创建一个或多个表后，可使用
+CREATE VIEW语句或企业管理器创建视图。
+v 可以代替表完成从表中查询、插入、更新和删除
+数据的操作。
+v 创建视图语句执行后，此视图的定义即进入数据
+字典，对语句中的<子查询>并未执行，也即视图
+并未真正生成。只是在对视图查询时，才按视图
+的定义从基本表中将数据查出。
+v 所以说，视图是虚表。
+
+【第180页】
+2024/6/6
+180
+创建视图
+v 语句格式
+CREATE VIEW <视图名> [<列名清单>]
+AS <子查询>
+[WITH CHECK OPTION]
+v 说明
+" <视图名>给出所定义的视图的名称。
+" <列名清单>，若有则此清单给出了此视图的全部属性的属性名；否则，
+此视图的所有属性名即为子查询中SELECT语句中的全部目标列。
+" <子查询>为任一合法SELECT语句（但一般不含有ORDER BY，
+UNION等语法成分）。
+" 有[WITH CHECK OPTION]时，则今后对此视图进行INSERT、
+UPDATE和DELETE操作时，系统自动检查是否符合原定义视图子查
+询中的<条件表达式>。
+
+【第181页】
+2024/6/6
+181
+v 例1  建立“02”号部门的职工视图，即从职工表
+中取出部门为“02”的元组组成一个视图。
+CREATE VIEW V_Emp_02
+AS
+SELECT *
+FROM Employee
+WHERE Dno= '02'
+v 以上视图只从单个基本表导出，且保留了原来的
+码，该视图称为行列子集视图，有些书上称为“简
+单视图” 。
+
+【第182页】
+2024/6/6
+182
+v 例2  建立“02”号部门的职工视图，并要求在进行修改和插
+入操作时仍需保证该视图只有“02”号部门的职工。
+CREATE VIEW V_Emp_02_2 
+AS
+SELECT *
+FROM Employee
+WHERE Dno= '02'
+WITH CHECK OPTION
+v 由于定义视图过程中带有WITH CHECK OPTION子句，以
+后对该视图进行插入、修改和删除操作时，RDBMS会自动
+加上Dno= '02'的条件，如果条件判断成立，则进行插入、修
+改和删除操作；反之，则不予操作并返回错误。
+
+【第183页】
+2024/6/6
+183
+v 视图可以从一个基本表或视图导出，也可以是从多个基本表或
+多个视图导出。
+v 定义视图时，若设置了一些派生属性（这些属性是原基本表没
+有的，其值是用一个表达式对原基本表的运算而得到的）则此
+视图称为带有表达式的视图，这些派生属性也称为虚拟列。
+v 注意：由于计算属性没有属性名，此时必须为之设置别名，或
+在视图名后指明视图的属性名。
+v 例3  在工资表上定义某个职工的实发工资V_salary。
+CREATE VIEW V_salary(Eno,Ename,Act_salary)
+AS 
+SELECT Employee.Eno,Ename,
+Basepay+Service+Price+Rest-Insure-Fund
+FROM Employee,Salary
+WHERE Employee.Eno=Salary.Eno
+
+【第184页】
+2024/6/6
+184
+v 视图不仅可以建立在一个或多个基本表上，也可以建
+立在一个或多个已定义好的视图上（称为基于视图的
+视图），或建立在基本表与视图上。
+v 例4  建立职工实发工资大于2000的职工实发工资视图。
+CREATE VIEW V_salary2
+AS
+SELECT *
+FROM V_salary
+WHERE Act_salary>2000
+
+【第185页】
+2024/6/6
+185
+v 定义视图时，若使用了集函数和GROUP BY子句的
+查询，则此视图称为分组视图。
+v 例5 建立含部门及部门职工平均实发工资的视图。
+CREATE VIEW V_Dept_Salary(Dno,Avg_Act_salary)
+AS
+SELECT Dno,AVG(Act_salary)
+FROM Employee,V_salary
+WHERE Employee.Eno=V_salary.Eno
+GROUP BY Dno
+
+【第186页】
+2024/6/6
+186
+*查看和修改视图基本信息
+v SQL SERVER 允许用户获得试图的一些有关
+信息，如：视图的名称、视图的所有者、创
+建时间等。视图的信息存放在以下几个SQL 
+SERVER系统表中：
+"Sysobjects:存放视图的名称等基本信息
+"Syscolumns:存放视图中定义的列
+"Sysdepends: 存放视图的依赖关系
+"Syscomments:存放定义视图的文本
+
+【第187页】
+2024/6/6
+187
+*管理视图
+v 可以使用系统存储过程sp_help来显示视图的名称、
+拥有者及创建时间等信息。
+v 可以使用系统存储过程sp_helptext来显示视图的定
+义语句。
+v 例6 查看视图的文本信息
+EXEC sp_helptext V_Dept_Salary
+v 可以使用系统存储过程sp_depends查看视图与其他
+数据库对象之间的依赖关系。
+v 例7 查看视图与其他数据库对象的依赖关系
+EXEC sp_depends V_Dept_Salary
+
+【第188页】
+2024/6/6
+188
+修改视图
+v 语句格式
+ALTER VIEW <视图名> [<列名清单>]
+AS <子查询>
+v 例8. 修改V_Emp_02 的定义
+ALTER VIEW V_Emp_02
+AS 
+SELECT *
+FROM Employee
+WHERE Dno= '02' AND Age<=40;
+
+【第189页】
+2024/6/6
+189
+删除视图
+v 语句格式
+DROP VIEW <视图名>
+v 此语句将把指定视图的定义从数据字典中删除。
+v 视图被删除后，该视图基表中存储的数据并不会受
+到影响。但任何建立在该视图上的其他数据库对象
+的查询将会发生错误。
+v 删除视图必须用DROP VIEW语句。
+v 例9. 从数据字典中删除V_Emp_02 视图的定义。
+DROP VIEW V_Emp_02
+
+【第190页】
+2024/6/6
+190
+通过视图修改基表中数据
+v 对视图进行的查询，对视图中的纪录进行的插入、
+修改及删除都是作用在基表上的。
+v 一个视图可以执行更新操作，需要以下条件：
+"定义视图的查询语句中没有集合函数，也没有top、
+distinct、group by和union子句。即查询语句的结果中的
+列应没有对基表中的列作修改。
+"定义视图的查询语句的FROM子句中至少要引用一个表。
+"还须注意不能在一个修改语句中对多个基表进行修改，
+即在UPDATE或INSERT语句中所用的列名必须是使用同
+一个表。
+v 通过视图对基表进行删除时，要求该视图的基表只
+有一个，即视图定义的FROM子句只引用了一个表。
+
+【第191页】
+2024/6/6
+191
+v 例10. 对视图V_Emp_02 的增删改将转化成对基本
+表Employee的增删改
+v INSERT INTO V_Emp_02
+VALUES('1036','陈向东','男',25,1,'工程师','02');
+v UPDATE V_Emp_02
+SET Ename='程向东'
+WHERE Eno='1036';
+v DELETE 
+FROM V_Emp_02
+WHERE Eno= '1036';
+INSERT INTO Employee
+VALUES('1036','陈向东','男',25,1,'工程师','02');
+UPDATE Employee
+SET Ename='程向东'
+WHERE Eno = '1036' ;
+DELETE 
+FROM Employee
+WHERE Eno= '1036';
+
+【第192页】
+2024/6/6
+192
+v 在定义视图时，若加上子句WITH CHECK OPTION，则在对视图更新时，
+系统将自动检查原定义时的条件是否满足。若不满足，则拒绝执行。
+v 例11. 无WITH CHECK OPTION选项指定。
+INSERT 
+INTO V_Emp_02
+VALUES('1038','陈华','男',25,1,'助工','03');
+v 其输出结果为：
+" （所影响的行数为1 行）
+v 例12. 带WITH CHECK OPTION子句的视图数据插入。
+INSERT 
+INTO V_Emp_02_2
+VALUES('1039','陈华东','男',25,1,'助工','03');
+v 其输出结果为：
+" 视图进行的插入或更新已失败，原因是目标视图或者目标视图所跨越的某一
+视图指定了WITH CHECK OPTION，而该操作的一个或多个结果行又不符
+合CHECK OPTION 约束的条件。语句已终止。
+
+【第193页】
+2024/6/6
+193
+v 不是所有的视图都是可更新的，因为有些视图的更新
+不能有意义的转化成相应基本表的更新。
+v 例13. 从职工表导出求每个部门的平均年龄的视图。
+CREATE VIEW V_avg_age
+AS 
+SELECT Dno,Avg(Age) AS Avg_age
+FROM Employee
+GROUP BY Dno
+v 本语句对此视图的任何更新都无法转换成对职工表的
+更新。
+
+【第194页】
+2024/6/6
+194
+§ 使用嵌套查询的数据更新
+§ 视图
+"CREATE VIEW
+"在查询块中可以用GROUP BY，但不能用
+ORDER BY子句
+"行列子集视图、非行列子集视图
+"视图的查询及更新
+回顾
+
+【第195页】
+2024/6/6
+195
+作业
+v 准备第二次上机实验内容
+"详见附录A：
+v“上机实验四SELECT语句基本格式的使用”
+v“上机实验五SELECT语句高级格式和完整格式的使
+用”
+v“上机实验六SQL的存储操作”
+v“上机实验七视图的建立及操作”
+"在Microsoft SQL Server环境中，上机实现书本
+第3.4、3.5、3.6节中的各例题。
+"备份上述两个数据库以备下次上机练习使用。

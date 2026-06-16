@@ -1,28 +1,15 @@
 @echo off
-title LiteTutor Edge Node Launcher
-
-echo ===================================================
-echo       LiteTutor 2.5 Edge Node Launcher
-echo ===================================================
+echo 正在启动 Lite-Tutor...
 echo.
 
-echo [1/4] Skipping Cpolar (use WebUI tunnel)...
+:: 启动后端
+start "Lite-Tutor Server" cmd /k "cd /d %~dp0 && python server.py"
 
-echo [2/4] Changing to working directory...
-cd /d D:\MEAdesktop\work\skills
+:: 等待3秒让server启动
+timeout /t 3 /nobreak > nul
 
-echo [3/4] Waking up Conda and Server Node...
-:: 使用您提供的精确路径强行唤醒 Conda
-start "LiteTutor Server Node" cmd /k "set EDGE_PUBLIC_URL=https://lt.hk.cpolar.io && call D:\conda\Scripts\activate.bat && conda activate lite_tutor && python server.py"
+:: 启动前端
+start "Lite-Tutor App" cmd /k "cd /d %~dp0 && streamlit run app.py"
 
-timeout /t 3 /nobreak >nul
-
-echo [4/4] Starting Streamlit Frontend...
-start "LiteTutor Streamlit" cmd /k "call D:\conda\Scripts\activate.bat && conda activate lite_tutor && cd /d D:\MEAdesktop\work\skills && streamlit run app.py"
-
-echo.
-echo ===================================================
-echo [SUCCESS] All tasks dispatched!
-echo You can close this main launcher window now.
-echo ===================================================
-pause
+echo 启动完成！浏览器将自动打开。
+echo 关闭系统请直接关闭两个终端窗口。

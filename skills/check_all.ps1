@@ -20,7 +20,7 @@ try {
     if ($tools.tools) {
         $toolNames = $tools.tools | ForEach-Object { $_.function.name }
     }
-    $okTools = ($toolNames -contains "edge_compute_sandbox") -and ($toolNames -contains "edge_knowledge_rag")
+    $okTools = ($toolNames -contains "edge_compute_sandbox") -and ($toolNames -contains "edge_knowledge_rag") -and ($toolNames -contains "edge_quiz_generator") -and ($toolNames -contains "edge_answer_grader")
     $results += [pscustomobject]@{ Check = "Tools"; Ok = $okTools; Detail = ($toolNames -join ",") }
 } catch {
     $results += [pscustomobject]@{ Check = "Tools"; Ok = $false; Detail = $_.Exception.Message }
@@ -30,7 +30,7 @@ try {
     $payload = @{ query = "KMP 是什么"; mode = "hybrid"; n_results = 2 }
     $resp = Invoke-PostJson -Url "$edgeUrl/search" -Body $payload
     $okSearch = ($resp.status -eq "success") -and ($resp.context -and $resp.context.Length -gt 0)
-    $results += [pscustomobject]@{ Check = "Search Hybrid"; Ok = $okSearch; Detail = $resp.status }
+    $results += [pscustomobject]@{ Check = "Search Hybrid"; Ok = $okSearch; Detail = "$($resp.status) fallback=$($resp.fallback_required) conf=$($resp.confidence)" }
 } catch {
     $results += [pscustomobject]@{ Check = "Search Hybrid"; Ok = $false; Detail = $_.Exception.Message }
 }
@@ -39,7 +39,7 @@ try {
     $payload = @{ query = "KMP 是什么"; mode = "vector"; n_results = 2 }
     $resp = Invoke-PostJson -Url "$edgeUrl/search" -Body $payload
     $okSearch = ($resp.status -eq "success") -and ($resp.context -and $resp.context.Length -gt 0)
-    $results += [pscustomobject]@{ Check = "Search Vector"; Ok = $okSearch; Detail = $resp.status }
+    $results += [pscustomobject]@{ Check = "Search Vector"; Ok = $okSearch; Detail = "$($resp.status) fallback=$($resp.fallback_required) conf=$($resp.confidence)" }
 } catch {
     $results += [pscustomobject]@{ Check = "Search Vector"; Ok = $false; Detail = $_.Exception.Message }
 }
@@ -51,6 +51,24 @@ try {
     $results += [pscustomobject]@{ Check = "Solve Code"; Ok = $okSolve; Detail = $resp.status }
 } catch {
     $results += [pscustomobject]@{ Check = "Solve Code"; Ok = $false; Detail = $_.Exception.Message }
+}
+
+try {
+    $payload = @{ question = "什么是DFS?"; n_results = 2 }
+    $resp = Invoke-PostJson -Url "$edgeUrl/quiz" -Body $payload
+    $okQuiz = ($resp.status -eq "success") -and ($resp.quiz -and $resp.quiz.Length -gt 0)
+    $results += [pscustomobject]@{ Check = "Quiz"; Ok = $okQuiz; Detail = $resp.status }
+} catch {
+    $results += [pscustomobject]@{ Check = "Quiz"; Ok = $false; Detail = $_.Exception.Message }
+}
+
+try {
+    $payload = @{ answer = "使用 栈 遍历"; keywords = @("栈","回溯"); min_hit = 1 }
+    $resp = Invoke-PostJson -Url "$edgeUrl/grade" -Body $payload
+    $okGrade = ($resp.status -eq "success") -and ($resp.result -eq "校验通过")
+    $results += [pscustomobject]@{ Check = "Grade"; Ok = $okGrade; Detail = $resp.result }
+} catch {
+    $results += [pscustomobject]@{ Check = "Grade"; Ok = $false; Detail = $_.Exception.Message }
 }
 
 try {

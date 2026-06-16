@@ -5,15 +5,18 @@ import chromadb
 from chromadb.utils import embedding_functions
 import urllib.request
 import urllib.error
+import uuid
 
 class HashEmbeddingFunction:
     def __init__(self, dim: int = 64):
         self.dim = dim
-        self.name = "hash-embedding"
 
-    def __call__(self, texts):
+    def name(self):
+        return "hash-embedding"
+
+    def __call__(self, input):
         vectors = []
-        for text in texts:
+        for text in input:
             vec = [0.0] * self.dim
             tokens = [t for t in re.split(r"[^a-zA-Z0-9\u4e00-\u9fff]+", str(text).lower()) if t]
             for token in tokens:
@@ -111,11 +114,41 @@ class LocalRAGKnowledgeBase:
 
     def query_knowledge_chunks(self, query_text: str, n_results: int = 2):
         print(f"\n[SEARCH] Querying knowledge base for: '{query_text}'")
-        results = self.collection.query(
-            query_texts=[query_text],
-            n_results=n_results
-        )
-        return results.get("documents", [[]])[0]
+        try:
+            results = self.collection.query(
+                query_texts=[query_text],
+                n_results=n_results
+            )
+            return results.get("documents", [[]])[0]
+        except Exception as e:
+            print(f"[SEARCH] query失败，降级到关键词搜索：{e}")
+            # 降级：直接全量关键词匹配
+            all_docs = self.collection.get(include=["documents"]).get("documents", [])
+            tokens = set(re.split(r"[^a-zA-Z0-9\u4e00-\u9fff]+", query_text.lower()))
+            scored = []
+            for doc in all_docs:
+                doc_tokens = set(re.split(r"[^a-zA-Z0-9\u4e00-\u9fff]+", doc.lower()))
+                score = len(tokens & doc_tokens)
+                if score > 0:
+                    scored.append((doc, score))
+            scored.sort(key=lambda x: x[1], reverse=True)
+            return [d for d, _ in scored[:n_results]]
+
+    def query_knowledge_chunks_with_scores(self, query_text: str, n_results: int = 2):
+        print(f"\n[SEARCH] Querying knowledge base for: '{query_text}'")
+        try:
+            results = self.collection.query(
+                query_texts=[query_text],
+                n_results=n_results,
+                include=["documents", "distances"]
+            )
+            documents = results.get("documents", [[]])[0]
+            distances = results.get("distances", [[]])[0]
+            return documents, distances
+        except Exception as e:
+            print(f"[SEARCH] query失败，降级：{e}")
+            docs = self.query_knowledge_chunks(query_text, n_results)
+            return docs, [0.5] * len(docs)
 
     def query_knowledge(self, query_text: str, n_results: int = 2) -> str:
         chunks = self.query_knowledge_chunks(query_text, n_results)
@@ -136,6 +169,62 @@ class LocalRAGKnowledgeBase:
         ranked = sorted(combined.items(), key=lambda x: x[1], reverse=True)
         top_docs = [doc for doc, _ in ranked[:n_results]]
         return "\n---\n".join(top_docs)
+
+    def add_document(self, text: str, source: str = "uploaded") -> bool:
+        """动态添加文档到知识库，返回False表示已存在"""
+        import hashlib
+        # 计算文档指纹
+        fingerprint = hashlib.md5(text.encode("utf-8")).hexdigest()[:12]
+        fp_id = f"__fingerprint__{source}"
+        # 检查是否已存在
+        try:
+            existing = self.collection.get(ids=[fp_id])
+            if existing and existing.get("ids"):
+                print(f"[RAG] 文档已存在，跳过：{source}")
+                return False
+        except Exception:
+            pass
+        chunks = []
+        paragraphs = [p.strip() for p in text.split("\n\n") if len(p.strip()) > 20]
+        current_chunk = ""
+        for para in paragraphs:
+            if len(current_chunk) + len(para) < 300:
+                current_chunk += para + "\n"
+            else:
+                if current_chunk:
+                    chunks.append(current_chunk.strip())
+                current_chunk = para + "\n"
+        if current_chunk:
+            chunks.append(current_chunk.strip())
+        if not chunks:
+            return
+        ids = [f"{source}_{i}_{uuid.uuid4().hex[:6]}" for i in range(len(chunks))]
+        self.collection.add(
+            documents=chunks,
+            ids=ids,
+            metadatas=[{"source": source} for _ in chunks]
+        )
+        # 存入指纹标记
+        try:
+            self.collection.add(
+                documents=[f"__fingerprint__{fingerprint}"],
+                ids=[fp_id],
+                metadatas=[{"source": source, "type": "fingerprint"}]
+            )
+        except Exception:
+            pass
+        print(f"[RAG] 已添加 {len(chunks)} 个chunk，来源：{source}")
+        return True
+
+
+    def list_sources(self) -> list:
+        """列出知识库中所有文档来源"""
+        try:
+            results = self.collection.get(include=["metadatas"])
+            sources = list({m.get("source", "unknown") for m in results["metadatas"]})
+            return sources
+        except Exception:
+            return []
 
 # Quick Local Test Block
 if __name__ == "__main__":

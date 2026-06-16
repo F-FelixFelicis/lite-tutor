@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+streamlit
+chromadb
+httpx
+python-multipart
+pymupdf
+requests
+pydantic
