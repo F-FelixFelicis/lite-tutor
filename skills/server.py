@@ -202,7 +202,7 @@ def _build_quiz(question: str, context: Optional[str] = None, n_results: int = 2
 
 import httpx
 
-DEEPSEEK_API_KEY = "sk-c19ba8610a2240d2abca5fbe0b2c89b5"
+DEEPSEEK_API_KEY = ""
 DEEPSEEK_BASE = "https://api.deepseek.com/v1"
 
 def _grade_answer(answer: str, keywords: list, min_hit: int = 1):
