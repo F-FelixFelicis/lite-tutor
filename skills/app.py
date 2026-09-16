@@ -1,13 +1,21 @@
 # -*- coding: utf-8 -*-
 import streamlit as st
 import streamlit.components.v1 as components
-import time
+import html
 import json
 import requests
 import uuid
-import base64
-import re
-from datetime import datetime, timedelta
+from urllib.parse import quote
+
+
+def _json_for_script(value) -> str:
+    """Serialize data without allowing it to terminate an inline script tag."""
+    return (
+        json.dumps(value, ensure_ascii=False)
+        .replace("&", "\\u0026")
+        .replace("<", "\\u003c")
+        .replace(">", "\\u003e")
+    )
 
 st.set_page_config(page_title="Lite-Tutor Pro | 极客导师", page_icon="🤖", layout="wide")
 
@@ -57,8 +65,12 @@ st.markdown(
 with st.sidebar:
     st.title("⚙️ 战情室控制台")
     st.markdown("---")
-    openclaw_url = st.text_input("OpenClaw Base URL", value="https://api.deepseek.com/v1")
-    edge_url = st.text_input("Edge Node URL", value="http://127.0.0.1:8000")
+    openclaw_url = st.text_input("模型 API Base URL", value="https://api.deepseek.com/v1")
+    edge_url = st.text_input(
+        "本地 Edge Node URL",
+        value="http://127.0.0.1:8000",
+        help="API Key 会发送到这个地址用于本地转发，请只填写可信地址。",
+    )
     api_key = st.text_input("API Key", type="password")
     model_name = st.text_input("Model", value="deepseek-chat")
     temperature = st.slider("Temperature", min_value=0.0, max_value=1.5, value=0.6, step=0.1)
@@ -69,7 +81,7 @@ with st.sidebar:
     st.subheader("🔋 算力自适应模式")
     mode = st.radio(
         "选择导师运行状态：",
-        ("Lite 模式 (纯文本云端)", "Standard 模式 (多模态交互)", "Pro 模式 (本地沙箱计算)"),
+        ("Lite 模式 (纯文本云端)", "Standard 模式 (课件增强)", "Pro 模式 (工具增强)"),
         index=1
     )
 
@@ -78,9 +90,9 @@ with st.sidebar:
     if "Lite" in mode:
         st.info("当前状态：低功耗云端推理\n\n适合设备：老旧设备、无 GPU 终端\n\n优势：极致普惠教育")
     elif "Standard" in mode:
-        st.success("当前状态：多模态交互模式\n\n支持：PDF课件导入、语义评分\n\n优势：专属知识库定制化辅导")
+        st.success("当前状态：课件增强模式\n\n支持：PDF课件检索、来源提示、语义评分\n\n优势：基于本地资料回答")
     else:
-        st.error("当前状态：物理机沙盒接管\n\n触发机制：MCP 原子化工具链\n\n优势：100% 零幻觉代码与数学推演")
+        st.warning("当前状态：工具增强模式\n\n支持：知识检索、出题、评分工具\n\n本地代码执行默认关闭，需在可信环境中手动启用")
 
     st.markdown("---")
     st.subheader("📚 知识库管理")
@@ -116,7 +128,7 @@ with st.sidebar:
                         if st.button("🗑️", key=f"del_{s}"):
                             try:
                                 del_resp = requests.delete(
-                                    f"{edge_url.rstrip('/')}/knowledge_source/{s}",
+                                    f"{edge_url.rstrip('/')}/knowledge_source/{quote(s, safe='')}",
                                     timeout=5
                                 )
                                 if del_resp.ok and del_resp.json().get("status") == "success":
@@ -134,20 +146,27 @@ with st.sidebar:
     if override_sid != st.session_state.session_id:
         st.session_state.session_id = override_sid
 
+backend_headers = {}
+if api_key.strip():
+    backend_headers["X-LiteTutor-API-Key"] = api_key.strip()
+
 # ── 顶部标题 ──
 header_left, header_right = st.columns([3, 2], vertical_alignment="center")
 with header_left:
     st.title("🛰️ Lite-Tutor 战情室")
-    st.caption("端云双脑协同 | OpenClaw 路由 | 本地物理算力")
+    st.caption("课件增强问答 | 自适应教学闭环 | 学习状态追踪")
 with header_right:
-    status = "就绪" if openclaw_url.strip() else "未配置"
+    status = "已配置" if openclaw_url.strip() else "未配置"
+    safe_mode = html.escape(str(mode))
+    safe_model = html.escape(model_name)
+    safe_session_id = html.escape(st.session_state.session_id)
     st.markdown(
         f"""
         <div class="neon-card hud">
-            <div>连接状态：{status}</div>
-            <div>当前模式：{mode}</div>
-            <div>模型：{model_name}</div>
-            <div>会话ID：{st.session_state.session_id}</div>
+            <div>API 地址：{status}</div>
+            <div>当前模式：{safe_mode}</div>
+            <div>模型：{safe_model}</div>
+            <div>会话ID：{safe_session_id}</div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -161,6 +180,11 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs(["🧭 对话学习", "🎯 测验", "�
 # ==================== Tab1：对话 ====================
 with tab1:
     st.subheader("🧭 任务对话")
+    adaptive_learning = st.toggle(
+        "启用自适应教学闭环",
+        value=False,
+        help="按“诊断 → 针对性讲解 → 测验 → 补救”的流程学习，并把结果写入掌握曲线。",
+    )
     for msg in st.session_state.messages:
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"] if isinstance(msg["content"], str) else msg["content"])
@@ -178,10 +202,9 @@ with tab1:
         try:
             if name == "edge_compute_sandbox":
                 payload = {
-                    "task_instruction": arguments.get("task_instruction", ""),
                     "code": arguments.get("code", ""),
                     "language": arguments.get("language", "python"),
-                    "timeout": arguments.get("timeout", 20)
+                    "timeout": arguments.get("timeout", 10)
                 }
                 resp = requests.post(f"{base_url.rstrip('/')}/solve", json=payload, timeout=20)
                 if resp.ok:
@@ -201,7 +224,10 @@ with tab1:
                     "difficulty": arguments.get("difficulty", "medium"),
                     "question_type": arguments.get("question_type", "varied")
                 }
-                resp = requests.post(f"{base_url.rstrip('/')}/quiz", json=payload, timeout=20)
+                resp = requests.post(
+                    f"{base_url.rstrip('/')}/quiz", json=payload,
+                    headers=backend_headers, timeout=20,
+                )
                 if resp.ok:
                     return json.dumps(resp.json(), ensure_ascii=False)
                 return f"Tool execution failed: HTTP {resp.status_code}"
@@ -211,9 +237,14 @@ with tab1:
                     "keywords": arguments.get("keywords", []),
                     "min_hit": arguments.get("min_hit", 1),
                     "session_id": st.session_state.session_id,
-                    "question": st.session_state.current_question
+                    "question": st.session_state.current_question,
+                    "question_type": arguments.get("question_type", "short_answer"),
+                    "expected_answer": arguments.get("expected_answer"),
                 }
-                resp = requests.post(f"{base_url.rstrip('/')}/grade", json=payload, timeout=20)
+                resp = requests.post(
+                    f"{base_url.rstrip('/')}/grade", json=payload,
+                    headers=backend_headers, timeout=20,
+                )
                 if resp.ok:
                     return json.dumps(resp.json(), ensure_ascii=False)
                 return f"Tool execution failed: HTTP {resp.status_code}"
@@ -233,12 +264,52 @@ with tab1:
         with st.chat_message("assistant"):
             message_placeholder = st.empty()
             full_response = ""
-            if not openclaw_url.strip():
+            if adaptive_learning:
+                try:
+                    tutor_resp = requests.post(
+                        f"{edge_url.rstrip('/')}/tutor",
+                        json={
+                            "session_id": st.session_state.session_id,
+                            "user_input": prompt,
+                        },
+                        headers=backend_headers,
+                        timeout=60,
+                    )
+                    tutor_data = tutor_resp.json()
+                    if tutor_resp.ok and tutor_data.get("status") == "success":
+                        full_response = tutor_data.get("response", "")
+                    else:
+                        full_response = f"教学流程调用失败：{tutor_data.get('message', tutor_resp.text)}"
+                except Exception as e:
+                    full_response = f"教学流程连接失败：{e}"
+            elif not openclaw_url.strip():
                 full_response = "OpenClaw Base URL 未配置。"
             else:
                 messages = []
                 if st.session_state.system_prompt.strip():
                     messages.append({"role": "system", "content": st.session_state.system_prompt.strip()})
+                rag_sources = []
+                if "Lite" not in mode and edge_url.strip():
+                    try:
+                        search_resp = requests.post(
+                            f"{edge_url.rstrip('/')}/search",
+                            json={"query": prompt, "mode": "hybrid", "n_results": 3},
+                            timeout=15,
+                        )
+                        search_data = search_resp.json()
+                        if search_resp.ok and not search_data.get("fallback_required", True):
+                            context = search_data.get("context", "")
+                            rag_sources = search_data.get("sources", [])
+                            if context:
+                                messages.append({
+                                    "role": "system",
+                                    "content": (
+                                        "以下是从学生课件中检索到的资料。优先依据这些资料回答；"
+                                        "若资料不足，请明确说明，不要编造。\n\n" + context
+                                    ),
+                                })
+                    except Exception:
+                        rag_sources = []
                 messages.extend(st.session_state.messages)
                 headers = {"Content-Type": "application/json; charset=utf-8"}
                 if api_key.strip():
@@ -301,11 +372,16 @@ with tab1:
                 except Exception as e:
                     full_response = f"OpenClaw 调用失败：{e}"
 
-            display_text = ""
-            for chunk in full_response.split(" "):
-                display_text += chunk + " "
-                time.sleep(0.05)
-                message_placeholder.markdown(display_text + "▌")
+                if full_response and rag_sources:
+                    source_labels = []
+                    for item in rag_sources:
+                        label = item.get("source", "课件")
+                        if item.get("page"):
+                            label += f" 第{item['page']}页"
+                        if label not in source_labels:
+                            source_labels.append(label)
+                    full_response += "\n\n> 课件来源：" + "；".join(source_labels)
+
             message_placeholder.markdown(full_response)
 
         st.session_state.messages.append({"role": "assistant", "content": full_response})
@@ -360,6 +436,7 @@ with tab2:
                         "difficulty": difficulty,
                         "question_type": question_type
                     },
+                    headers=backend_headers,
                     timeout=20
                 )
                 if resp.ok and resp.json().get("status") == "success":
@@ -390,12 +467,14 @@ with tab2:
             "short_answer": "📝 简答题", "true_false": "✅ 判断题"
         }
         type_badge = type_icon.get(q_type, "📝 题目")
+        safe_badge = html.escape(type_badge)
+        safe_quiz = html.escape(str(st.session_state.current_quiz))
 
         st.markdown(
             f"""<div style="background:#f0f7ff;border-left:4px solid #2E75B6;
             border-radius:8px;padding:15px;margin:10px 0;">
-            <span style="background:#2E75B6;color:white;padding:2px 10px;border-radius:12px;font-size:0.8em;">{type_badge}</span>
-            <br><br><b>{st.session_state.current_quiz}</b></div>""",
+            <span style="background:#2E75B6;color:white;padding:2px 10px;border-radius:12px;font-size:0.8em;">{safe_badge}</span>
+            <br><br><b>{safe_quiz}</b></div>""",
             unsafe_allow_html=True
         )
 
@@ -452,6 +531,7 @@ with tab2:
             st.session_state.quiz_keywords = []
             st.session_state.quiz_type = None
             st.session_state.quiz_extra = {}
+            st.rerun()
 
         if submitted and user_answer:
             final_answer = str(user_answer).strip()
@@ -466,36 +546,33 @@ with tab2:
                                 "answer": final_answer,
                                 "keywords": st.session_state.quiz_keywords,
                                 "session_id": st.session_state.session_id,
-                                "question": st.session_state.current_quiz
+                                "question": st.session_state.current_quiz,
+                                "question_type": q_type,
+                                "expected_answer": (
+                                    extra.get("blanks") if q_type == "fill"
+                                    else extra.get("correct")
+                                ),
                             },
+                            headers=backend_headers,
                             timeout=20
                         )
-                        if grade_resp.ok:
-                            gdata = grade_resp.json()
+                        gdata = grade_resp.json()
+                        if grade_resp.ok and gdata.get("status") == "success":
                             result = gdata.get("result", "")
                             feedback = gdata.get("feedback", "")
                             matched = gdata.get("matched_keywords", [])
 
-                            # 选择题特殊处理：检查是否正确
-                            if q_type == "choice":
-                                correct_ans = extra.get("correct", "")
-                                if final_answer.upper().strip() == correct_ans.upper().strip():
-                                    result = "校验通过"
-                                    feedback = f"✅ 正确！答案为 {correct_ans}" + (f"（{feedback}）" if feedback else "")
-                                else:
-                                    result = "校验未通过"
-                                    feedback = f"❌ 错误！正确答案为 {correct_ans}" + (f"（{feedback}）" if feedback else "")
-
                             if result == "校验通过":
-                                st.success(f"✅ 回答正确！")
+                                st.success("✅ 回答正确！")
                             else:
-                                st.error(f"❌ 回答有误")
+                                st.error("❌ 回答有误")
 
                             if feedback:
+                                safe_feedback = html.escape(str(feedback))
                                 st.markdown(
                                     f"""<div style="background:#fffbeb;border-left:4px solid #f59e0b;
                                     border-radius:8px;padding:12px;margin:8px 0;">
-                                    🤖 <b>AI点评：</b>{feedback}</div>""",
+                                    🤖 <b>AI点评：</b>{safe_feedback}</div>""",
                                     unsafe_allow_html=True
                                 )
                             if matched:
@@ -509,6 +586,8 @@ with tab2:
                             # 再来一题按钮
                             if st.button("➡️ 再来一题", use_container_width=False):
                                 st.rerun()
+                        else:
+                            st.error(f"评分失败：{gdata.get('message', grade_resp.text)}")
 
                     except Exception as e:
                         st.error(f"评分失败：{e}")
@@ -580,10 +659,10 @@ with tab3:
                     resizeTimer = setTimeout(function() {{ chart.resize(); }}, 100);
                 }});
 
-                var labels = {json.dumps(labels, ensure_ascii=False)};
-                var values = {json.dumps(values)};
-                var totals = {json.dumps(totals)};
-                var passes = {json.dumps(passes)};
+                var labels = {_json_for_script(labels)};
+                var values = {_json_for_script(values)};
+                var totals = {_json_for_script(totals)};
+                var passes = {_json_for_script(passes)};
 
                 // 为每个数据点生成颜色
                 var pointColors = values.map(function(v) {{
@@ -599,6 +678,7 @@ with tab3:
                     color: ['#2E75B6'],
                     tooltip: {{
                         trigger: 'axis',
+                        renderMode: 'richText',
                         backgroundColor: 'rgba(255,255,255,0.95)',
                         borderColor: '#e2e8f0',
                         borderWidth: 1,
@@ -606,9 +686,8 @@ with tab3:
                         formatter: function(params) {{
                             var p = params[0];
                             var idx = p.dataIndex;
-                            return '<b>' + p.name + '</b><br/>'
-                                + '掌握度：<b style="color:' + (values[idx] >= 60 ? '#22c55e' : '#ef4444') + '">'
-                                + values[idx] + '%</b><br/>'
+                            return p.name + '\\n'
+                                + '掌握度：' + values[idx] + '%\\n'
                                 + '通过：' + passes[idx] + ' / 总答题：' + totals[idx];
                         }}
                     }},
@@ -723,12 +802,13 @@ with tab3:
                     color = _mastery_color(pct)
                     # 进度条
                     emoji = "🌟" if pct >= 80 else "📘" if pct >= 60 else "📙" if pct >= 40 else "📕"
+                    safe_kw = html.escape(str(kw))
                     st.markdown(
                         f"""<div style="background:#ffffff;border:1px solid {color}30;
                         border-radius:12px;padding:12px;margin:4px 0;
                         box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
                         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-                            <span style="color:#334155;font-weight:600;font-size:0.9em;">{emoji} {kw}</span>
+                            <span style="color:#334155;font-weight:600;font-size:0.9em;">{emoji} {safe_kw}</span>
                             <span style="color:{color};font-weight:700;font-size:1.1em;">{pct}%</span>
                         </div>
                         <div style="background:#f1f5f9;border-radius:6px;height:6px;overflow:hidden;">
@@ -766,21 +846,45 @@ with tab4:
                 if missed:
                     st.markdown(f"**💡 漏掉的关键词：** {', '.join(missed)}")
                 if r.get("feedback"):
+                    safe_feedback = html.escape(str(r["feedback"]))
                     st.markdown(
                         f"""<div style="background:#fffbeb;border-left:4px solid #f59e0b;
                         border-radius:8px;padding:10px;margin:6px 0;">
-                        🤖 <b>AI点评：</b>{r['feedback']}</div>""",
+                        🤖 <b>AI点评：</b>{safe_feedback}</div>""",
                         unsafe_allow_html=True
                     )
-                if st.button(f"🔁 重新练习", key=f"retry_{i}"):
-                    retry_q = r.get("question", "")
-                    if retry_q:
-                        st.session_state.messages.append({
-                            "role": "user",
-                            "content": f"请出一道关于「{retry_q}」相关知识点的新题目考我"
-                        })
-                        st.session_state.current_question = retry_q
-                        st.info("已发送练习请求，请切换到「对话学习」Tab查看新题目！")
+                if st.button("🔁 重新练习", key=f"retry_{i}"):
+                    retry_topic = "、".join(r.get("keywords", [])[:3]) or r.get("question", "")
+                    if retry_topic:
+                        try:
+                            retry_resp = requests.post(
+                                f"{edge_url.rstrip('/')}/quiz",
+                                json={
+                                    "question": retry_topic,
+                                    "n_results": 2,
+                                    "difficulty": "easy",
+                                    "question_type": r.get("question_type", "varied"),
+                                },
+                                headers=backend_headers,
+                                timeout=20,
+                            )
+                            retry_data = retry_resp.json()
+                            if retry_resp.ok and retry_data.get("status") == "success":
+                                st.session_state.current_quiz = retry_data.get("quiz", "")
+                                st.session_state.quiz_keywords = retry_data.get("keywords", [])
+                                st.session_state.current_question = retry_topic
+                                st.session_state.quiz_type = retry_data.get("question_type", "short_answer")
+                                st.session_state.quiz_extra = {
+                                    key: value for key, value in retry_data.items()
+                                    if key not in ("status", "quiz", "keywords", "context", "question_type")
+                                }
+                                st.session_state.waiting_answer = True
+                                st.toast("已生成一道针对性复习题，请切换到“测验”页。")
+                                st.rerun()
+                            else:
+                                st.error(f"重新出题失败：{retry_data.get('message', retry_resp.text)}")
+                        except Exception as e:
+                            st.error(f"重新出题失败：{e}")
 
 # ==================== Tab5：思维导图 ====================
 with tab5:
@@ -924,8 +1028,8 @@ with tab5:
                 resizeTimer = setTimeout(resizeChart, 100);
             }});
 
-            var nodes = {json.dumps(nodes, ensure_ascii=False)};
-            var links = {json.dumps(links, ensure_ascii=False)};
+            var nodes = {_json_for_script(nodes)};
+            var links = {_json_for_script(links)};
 
             // 为每条边添加微小曲度防止完全重叠
             links = links.map(function(link, i) {{
@@ -941,15 +1045,16 @@ with tab5:
             chart.setOption({{
                 backgroundColor: 'transparent',
                 tooltip: {{
+                    renderMode: 'richText',
                     backgroundColor: 'rgba(255,255,255,0.95)',
                     borderColor: '#e2e8f0',
                     textStyle: {{ color: '#1e293b', fontSize: 12 }},
                     formatter: function(p) {{
                         if (p.dataType === 'node') {{
                             var cat = ['核心', '题目', '知识点', '手动添加'][p.data.category || 0];
-                            var info = '<b>' + p.name + '</b><br/>类型：' + cat;
+                            var info = p.name + '\\n类型：' + cat;
                             if (p.data.mastery !== undefined) {{
-                                info += '<br/>掌握度：<b>' + p.data.mastery + '%</b>';
+                                info += '\\n掌握度：' + p.data.mastery + '%';
                             }}
                             return info;
                         }}
@@ -962,7 +1067,7 @@ with tab5:
                     roam: 'move',
                     draggable: true,
                     center: ['50%', '50%'],
-                    categories: {json.dumps(categories, ensure_ascii=False)},
+                    categories: {_json_for_script(categories)},
                     label: {{
                         show: true,
                         position: 'right',

@@ -2,30 +2,77 @@ import os
 import subprocess
 import re
 import uuid
+import hashlib
+import sys
 from collections import Counter
-from typing import Optional, Dict, Any, List
-from fastapi import FastAPI
+from threading import Lock
+from typing import Optional, Dict, Any, List, Literal
+from fastapi import FastAPI, Header, UploadFile, File, Query
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import uvicorn
 import json
 from pathlib import Path
 from datetime import datetime
-from fastapi import FastAPI, UploadFile, File
-import fitz  # pymupdf
+import httpx
+try:
+    import pymupdf as fitz
+except ImportError:  # Compatibility with older PyMuPDF releases.
+    import fitz
 import tempfile
 
 
 from rag_builder import LocalRAGKnowledgeBase
 from edge_tool import get_tool_schemas
+from assessment import grade_structured_answer
+
+BASE_DIR = Path(__file__).resolve().parent
+
+
+def _runtime_path(env_name: str, default_name: str) -> Path:
+    configured = Path(os.getenv(env_name, default_name)).expanduser()
+    return configured if configured.is_absolute() else BASE_DIR / configured
+
+
+DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "").strip()
+DEEPSEEK_BASE = os.getenv("DEEPSEEK_BASE", "https://api.deepseek.com/v1").rstrip("/")
+ALLOW_CODE_EXECUTION = os.getenv("LITETUTOR_ENABLE_CODE_EXECUTION", "false").lower() in {
+    "1", "true", "yes", "on"
+}
 
 class UTF8JSONResponse(JSONResponse):
     media_type = "application/json; charset=utf-8"
 
 app = FastAPI(title="LiteTutor Edge Node", default_response_class=UTF8JSONResponse)
 
+
+@app.get("/health")
+async def health_check():
+    return {
+        "status": "ok",
+        "llm_configured": bool(DEEPSEEK_API_KEY),
+        "code_execution_enabled": ALLOW_CODE_EXECUTION,
+    }
+
 def _tokenize(text: str) -> List[str]:
-    return [t for t in re.split(r"[^a-zA-Z0-9\u4e00-\u9fff]+", text.lower()) if len(t) > 1]
+    parts = re.findall(r"[a-z0-9]+|[\u4e00-\u9fff]+", text.lower())
+    tokens: List[str] = []
+    for part in parts:
+        if re.fullmatch(r"[\u4e00-\u9fff]+", part):
+            tokens.extend(part[i:i + 2] for i in range(max(1, len(part) - 1)))
+        elif len(part) > 1:
+            tokens.append(part)
+    return tokens
+
+
+def _api_key(override: Optional[str] = None) -> str:
+    """Prefer a per-request key from the local UI; never persist it."""
+    return (override or DEEPSEEK_API_KEY).strip()
+
+
+def _stable_variant(value: str, count: int) -> int:
+    digest = hashlib.sha256(value.encode("utf-8")).digest()
+    return int.from_bytes(digest[:4], "big") % count
 
 def _extract_keywords(text: str, limit: int = 4) -> List[str]:
     tokens = _tokenize(text)
@@ -35,7 +82,8 @@ def _extract_keywords(text: str, limit: int = 4) -> List[str]:
     return [w for w, _ in counts.most_common(limit)]
 
 def _build_quiz(question: str, context: Optional[str] = None, n_results: int = 2,
-                difficulty: str = "medium", question_type: str = "varied"):
+                difficulty: str = "medium", question_type: str = "varied",
+                api_key: Optional[str] = None):
     """出题：支持难度选择和多样题型
     difficulty: easy | medium | hard
     question_type: varied(混合) | choice(选择) | fill(填空) | short_answer(简答) | true_false(判断)
@@ -50,47 +98,7 @@ def _build_quiz(question: str, context: Optional[str] = None, n_results: int = 2
         "medium": "综合理解题，考察知识点之间的关联和应用，适合有一定基础的学生",
         "hard": "深度分析题，考察复杂场景下的推理和批判性思维，适合进阶学生"
     }
-    diff_desc = difficulty_guide.get(difficulty, difficulty_guide["medium"])
-
-    type_guide = {
-        "choice": "出单选题，4个选项(A/B/C/D)，正确选项需明确标注",
-        "fill": "出填空题，用____标记空缺处，考察关键术语或核心概念",
-        "short_answer": "出简答题，要求用一段话阐述概念或原理",
-        "true_false": "出判断题，给出一个陈述让学生判断对错并简述理由",
-        "varied": f"从以下题型中随机选择一种：{'选择题' if hash(question)%3==0 else '填空题' if hash(question)%3==1 else '简答题'}"
-    }
-    type_desc = type_guide.get(question_type, type_guide["varied"])
-
-    # 根据题型决定JSON输出格式
-    if question_type == "choice" or (question_type == "varied" and hash(question) % 3 == 0):
-        output_format = """{
-      "question_type": "choice",
-      "quiz": "题目内容（题干）",
-      "options": {"A": "选项A内容", "B": "选项B内容", "C": "选项C内容", "D": "选项D内容"},
-      "correct": "A",
-      "keywords": ["关键词1", "关键词2", "关键词3"]
-    }"""
-    elif question_type == "fill" or (question_type == "varied" and hash(question) % 3 == 1):
-        output_format = """{
-      "question_type": "fill",
-      "quiz": "包含____的填空题题干（可以有多个____）",
-      "blanks": ["答案1", "答案2"],
-      "keywords": ["关键词1", "关键词2", "关键词3"]
-    }"""
-    elif question_type == "true_false":
-        output_format = """{
-      "question_type": "true_false",
-      "quiz": "判断正误的陈述句",
-      "correct": true或false,
-      "explanation": "正确/错误的原因简述",
-      "keywords": ["关键词1", "关键词2", "关键词3"]
-    }"""
-    else:
-        output_format = """{
-      "question_type": "short_answer",
-      "quiz": "题目内容",
-      "keywords": ["关键词1", "关键词2", "关键词3"]
-    }"""
+    varied_index = _stable_variant(question, 3)
 
     # ── 构建强制题型提示词 ──
     type_templates = {
@@ -112,12 +120,15 @@ def _build_quiz(question: str, context: Optional[str] = None, n_results: int = 2
         },
     }
     if question_type == "varied":
-        actual_type = ["choice", "fill", "short_answer"][hash(question) % 3]
+        actual_type = ["choice", "fill", "short_answer"][varied_index]
     else:
         actual_type = question_type
     tmpl = type_templates.get(actual_type, type_templates["short_answer"])
 
     try:
+        request_key = _api_key(api_key)
+        if not request_key:
+            raise RuntimeError("未配置 DeepSeek API Key")
         system_msg = (
             f"你是一名出题老师。你必须严格按照指定JSON格式出题，不得输出其他内容。"
             f"题型：{tmpl['desc']}。难度：{difficulty_guide.get(difficulty, '中等')}。"
@@ -129,7 +140,7 @@ def _build_quiz(question: str, context: Optional[str] = None, n_results: int = 2
         )
         resp = httpx.post(
             f"{DEEPSEEK_BASE}/chat/completions",
-            headers={"Authorization": f"Bearer {DEEPSEEK_API_KEY}"},
+            headers={"Authorization": f"Bearer {request_key}"},
             json={
                 "model": "deepseek-chat",
                 "messages": [
@@ -142,6 +153,7 @@ def _build_quiz(question: str, context: Optional[str] = None, n_results: int = 2
             },
             timeout=25
         )
+        resp.raise_for_status()
         data = resp.json()
         content = data["choices"][0]["message"]["content"]
         parsed = json.loads(content)
@@ -200,24 +212,20 @@ def _build_quiz(question: str, context: Optional[str] = None, n_results: int = 2
         quiz = "请用一句话解释以下关键词并至少覆盖其中两个：" + "、".join(keywords[:3])
     return working_context, keywords[:4], quiz, fallback_type, extra
 
-import httpx
-
-DEEPSEEK_API_KEY = ""
-DEEPSEEK_BASE = "https://api.deepseek.com/v1"
-
-def _grade_answer(answer: str, keywords: list, min_hit: int = 1):
-    """保留原接口兼容性"""
-    hits = [k for k in (keywords or []) if k in answer]
-    result = "校验通过" if len(hits) >= min_hit else "校验未通过"
-    return result, hits
-
-# ✅ LLM语义评分（主力）
-def _grade_answer_llm(question: str, answer: str, keywords: list) -> tuple:
+def _grade_answer_llm(
+    question: str,
+    answer: str,
+    keywords: list,
+    reference_answer: Optional[str] = None,
+    api_key: Optional[str] = None,
+    min_hit: int = 1,
+) -> tuple:
     kw_str = "、".join(keywords) if keywords else "无"
     prompt = f"""你是一名严格但公正的老师，请判断学生的回答是否正确。
 
 题目：{question}
 参考知识点关键词：{kw_str}
+参考答案：{reference_answer or '无'}
 学生回答：{answer}
 
 请用JSON格式回复，不要有其他内容：
@@ -227,9 +235,12 @@ def _grade_answer_llm(question: str, answer: str, keywords: list) -> tuple:
   "feedback": "一句话点评，指出对的地方和缺少的地方"
 }}"""
     try:
+        request_key = _api_key(api_key)
+        if not request_key:
+            raise RuntimeError("未配置 DeepSeek API Key")
         resp = httpx.post(
             f"{DEEPSEEK_BASE}/chat/completions",
-            headers={"Authorization": f"Bearer {DEEPSEEK_API_KEY}"},
+            headers={"Authorization": f"Bearer {request_key}"},
             json={
                 "model": "deepseek-chat",
                 "messages": [{"role": "user", "content": prompt}],
@@ -239,6 +250,7 @@ def _grade_answer_llm(question: str, answer: str, keywords: list) -> tuple:
             },
             timeout=20
         )
+        resp.raise_for_status()
         data = resp.json()
         content = data["choices"][0]["message"]["content"]
         parsed = json.loads(content)
@@ -247,30 +259,21 @@ def _grade_answer_llm(question: str, answer: str, keywords: list) -> tuple:
         feedback = parsed.get("feedback", "")
         result = "校验通过" if passed else "校验未通过"
         return result, hits, feedback
-    except Exception as e:
+    except Exception:
         # 降级到关键词匹配
-        hits = [k for k in (keywords or []) if k in answer.lower()]
-        result = "校验通过" if hits else "校验未通过"
-        return result, hits, f"（AI评分暂时不可用，已降级到关键词匹配）"
+        lowered = answer.casefold()
+        hits = [k for k in (keywords or []) if str(k).casefold() in lowered]
+        passed = len(hits) >= max(1, min_hit)
+        return (
+            "校验通过" if passed else "校验未通过",
+            hits,
+            "AI评分暂时不可用，已降级到关键词匹配。",
+        )
 
 
-# ✅ 保留原版作为降级备用（改名加下划线前缀）
-def _grade_answer(answer: str, keywords: Optional[List[str]] = None, min_hit: int = 1):
-    clean_answer = answer.strip()
-    lowered = clean_answer.lower()
-    keyword_list = keywords or []
-    hits = [k for k in keyword_list if k in lowered]
-    threshold = max(1, min_hit)
-    if keyword_list and len(hits) >= threshold:
-        result = "校验通过"
-    elif not keyword_list and len(clean_answer) >= 6:
-        result = "校验通过"
-    else:
-        result = "校验未通过"
-    return result, hits
-
-
-LEARNING_DB_PATH = Path("learning_db.json")
+LEARNING_DB_PATH = _runtime_path("LITETUTOR_LEARNING_DB", "user_learning_db.json")
+UPLOAD_DIR = _runtime_path("LITETUTOR_UPLOAD_DIR", "uploads")
+LEARNING_DB_LOCK = Lock()
 tutor_sessions: Dict[str, Dict[str, Any]] = {}
 
 def _load_learning_db() -> dict:
@@ -282,20 +285,30 @@ def _load_learning_db() -> dict:
     return {}
 
 def _save_learning_db(db: dict):
-    LEARNING_DB_PATH.write_text(
+    LEARNING_DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    temp_path = LEARNING_DB_PATH.with_suffix(LEARNING_DB_PATH.suffix + ".tmp")
+    temp_path.write_text(
         json.dumps(db, ensure_ascii=False, indent=2), encoding="utf-8"
     )
+    temp_path.replace(LEARNING_DB_PATH)
+
+
+def _record_learning(session_id: str, record: dict) -> None:
+    with LEARNING_DB_LOCK:
+        learning_db.setdefault(session_id, []).append(record)
+        _save_learning_db(learning_db)
 
 learning_db = _load_learning_db()
 
 print("Waking up Right Brain (ChromaDB)...")
-rag_db = LocalRAGKnowledgeBase()
+rag_db = LocalRAGKnowledgeBase(
+    db_path=_runtime_path("LITETUTOR_RAG_DB", "chroma_db")
+)
 
 # 启动时自动导入本地知识文件
-import pathlib
 _auto_files = ["data_structure_notes.txt", "math.md"]
 for _f in _auto_files:
-    _path = pathlib.Path(_f)
+    _path = BASE_DIR / _f
     if _path.exists():
         try:
             # 尝试utf-8，失败则用gbk
@@ -309,80 +322,93 @@ for _f in _auto_files:
             print(f"[AUTO-IMPORT] {_f} 导入失败：{_e}")
 
 class TaskRequest(BaseModel):
-    task_instruction: Optional[str] = None
-    code: Optional[str] = None
-    language: str = "python"
-    timeout: int = 20
+    code: str = Field(min_length=1, max_length=10_000)
+    language: Literal["python"] = "python"
+    timeout: int = Field(default=10, ge=1, le=10)
 
 @app.post("/solve")
 async def receive_task(request: TaskRequest):
-    if request.code and request.code.strip():
-        if request.language.lower() != "python":
-            return {"status": "error", "message": "Only python is supported for code execution."}
-        try:
+    if not ALLOW_CODE_EXECUTION:
+        return {
+            "status": "disabled",
+            "message": "本地代码执行默认关闭。仅在可信环境中设置 LITETUTOR_ENABLE_CODE_EXECUTION=true 后启用。"
+        }
+    try:
+        with tempfile.TemporaryDirectory(prefix="litetutor_exec_") as work_dir:
+            safe_env = {
+                "PATH": os.environ.get("PATH", ""),
+                "SYSTEMROOT": os.environ.get("SYSTEMROOT", ""),
+                "TEMP": work_dir,
+                "TMP": work_dir,
+                "PYTHONIOENCODING": "utf-8",
+            }
             result = subprocess.run(
-                ["python", "-c", request.code],
+                [sys.executable, "-I", "-S", "-c", request.code],
                 capture_output=True,
                 text=True,
-                timeout=request.timeout
+                timeout=request.timeout,
+                cwd=work_dir,
+                env=safe_env,
             )
-            return {
-                "status": "success" if result.returncode == 0 else "failed",
-                "stdout": result.stdout,
-                "stderr": result.stderr,
-                "exit_code": result.returncode
-            }
-        except Exception as e:
-            return {"status": "error", "message": str(e)}
-
-    if request.task_instruction and request.task_instruction.strip():
-        instruction = request.task_instruction
-        print("\n" + "="*60)
-        print(f"[TASK RECEIVED] Instruction: {instruction}")
-        try:
-            print("Waking up OpenCode Native UI (Fire-and-Forget Mode)...")
-            full_command = f'opencode --prompt "{instruction}"'
-            subprocess.Popen(full_command, shell=True)
-            return {
-                "status": "success", 
-                "solution": "[Task dispatched successfully. Execution output is rendering natively on the Edge Node physical screen.]"
-            }
-        except Exception as e:
-            return {"status": "error", "message": str(e)}
-
-    return {"status": "error", "message": "Either task_instruction or code must be provided."}
+        return {
+            "status": "success" if result.returncode == 0 else "failed",
+            "stdout": result.stdout,
+            "stderr": result.stderr,
+            "exit_code": result.returncode,
+        }
+    except Exception as exc:
+        return {"status": "error", "message": str(exc)}
 
 class SearchRequest(BaseModel):
-    query: str
-    mode: str = "hybrid"
-    n_results: int = 2
+    query: str = Field(min_length=1, max_length=2_000)
+    mode: Literal["hybrid", "vector"] = "hybrid"
+    n_results: int = Field(default=2, ge=1, le=10)
 
 @app.post("/search")
 async def search_knowledge(req: SearchRequest):
     print("\n" + "="*60)
     print(f"[SEARCH RECEIVED] Query: {req.query}")
     try:
-        documents, distances = rag_db.query_knowledge_chunks_with_scores(req.query, n_results=req.n_results)
+        documents, distances, metadatas = rag_db.query_knowledge_chunks_with_scores(
+            req.query, n_results=req.n_results
+        )
+        if req.mode.lower() != "vector":
+            hybrid_results = rag_db.query_knowledge_hybrid_with_metadata(
+                req.query, n_results=req.n_results
+            )
+            if hybrid_results:
+                documents = [item[0] for item in hybrid_results]
+                metadatas = [item[1] for item in hybrid_results]
         confidence = 0.0
         if distances:
             confidence = 1.0 / (1.0 + distances[0])
+        if req.mode.lower() != "vector":
+            confidence = max(confidence, rag_db.keyword_confidence(req.query))
         threshold = float(os.getenv("RAG_CONF_THRESHOLD", "0.35"))
         fallback_required = (not documents) or (confidence < threshold)
         if fallback_required:
             return {
                 "status": "success",
                 "context": "",
+                "sources": [],
                 "fallback_required": True,
                 "confidence": confidence
             }
-        if req.mode.lower() == "vector":
-            retrieved_context = "\n---\n".join(documents)
-        else:
-            retrieved_context = rag_db.query_knowledge_hybrid(req.query, n_results=req.n_results)
+        retrieved_context = "\n---\n".join(documents)
         print(f"[SEARCH RESULT] Found {len(retrieved_context)} characters of context.")
+        sources = []
+        for metadata in metadatas:
+            source = metadata.get("source", "unknown")
+            page = metadata.get("page")
+            item = {"source": source}
+            if page:
+                item["page"] = page
+            if item not in sources:
+                sources.append(item)
         return {
             "status": "success", 
             "context": retrieved_context,
+            "sources": sources,
             "fallback_required": False,
             "confidence": confidence
         }
@@ -390,18 +416,22 @@ async def search_knowledge(req: SearchRequest):
         return {"status": "error", "message": str(e)}
 
 class QuizRequest(BaseModel):
-    question: str
-    context: Optional[str] = None
-    n_results: int = 2
-    difficulty: str = "medium"      # easy | medium | hard
-    question_type: str = "varied"   # varied | choice | fill | short_answer | true_false
+    question: str = Field(min_length=1, max_length=2_000)
+    context: Optional[str] = Field(default=None, max_length=10_000)
+    n_results: int = Field(default=2, ge=1, le=10)
+    difficulty: Literal["easy", "medium", "hard"] = "medium"
+    question_type: Literal["varied", "choice", "fill", "short_answer", "true_false"] = "varied"
 
 @app.post("/quiz")
-async def generate_quiz(req: QuizRequest):
+async def generate_quiz(
+    req: QuizRequest,
+    x_api_key: Optional[str] = Header(None, alias="X-LiteTutor-API-Key"),
+):
     try:
         context, keywords, quiz, q_type, extra = _build_quiz(
             req.question, req.context, req.n_results,
-            difficulty=req.difficulty, question_type=req.question_type
+            difficulty=req.difficulty, question_type=req.question_type,
+            api_key=x_api_key,
         )
         return {
             "status": "success",
@@ -415,20 +445,35 @@ async def generate_quiz(req: QuizRequest):
         return {"status": "error", "message": str(e)}
 
 class GradeRequest(BaseModel):
-    answer: str
+    answer: str = Field(min_length=1, max_length=10_000)
     keywords: Optional[List[str]] = None
-    min_hit: int = 1
-    session_id: Optional[str] = "default"
-    question: Optional[str] = ""
+    min_hit: int = Field(default=1, ge=1, le=20)
+    session_id: Optional[str] = Field(default="default", max_length=128)
+    question: Optional[str] = Field(default="", max_length=5_000)
+    question_type: Literal["choice", "fill", "short_answer", "true_false"] = "short_answer"
+    expected_answer: Optional[Any] = None
+    reference_answer: Optional[str] = None
 
 @app.post("/grade")
-async def grade_answer(req: GradeRequest):
+async def grade_answer(
+    req: GradeRequest,
+    x_api_key: Optional[str] = Header(None, alias="X-LiteTutor-API-Key"),
+):
     try:
-        result, hits, feedback = _grade_answer_llm(
-            question=req.question or "",
-            answer=req.answer,
-            keywords=req.keywords or []
+        structured_result = grade_structured_answer(
+            req.question_type, req.answer, req.expected_answer
         )
+        if structured_result is not None:
+            result, hits, feedback = structured_result
+        else:
+            result, hits, feedback = _grade_answer_llm(
+                question=req.question or "",
+                answer=req.answer,
+                keywords=req.keywords or [],
+                reference_answer=req.reference_answer,
+                api_key=x_api_key,
+                min_hit=req.min_hit,
+            )
         record = {
             "timestamp": datetime.now().isoformat(),
             "question": req.question or "",
@@ -436,13 +481,11 @@ async def grade_answer(req: GradeRequest):
             "answer": req.answer,
             "result": result,
             "hits": hits,
-            "feedback": feedback
+            "feedback": feedback,
+            "question_type": req.question_type,
         }
         sid = req.session_id or "default"
-        if sid not in learning_db:
-            learning_db[sid] = []
-        learning_db[sid].append(record)
-        _save_learning_db(learning_db)
+        _record_learning(sid, record)
         return {"status": "success", "result": result, "matched_keywords": hits, "feedback": feedback}
     except Exception as e:
         return {"status": "error", "message": str(e)}
@@ -450,85 +493,156 @@ async def grade_answer(req: GradeRequest):
 @app.get("/tools")
 async def list_tools():
     public_url = os.getenv("EDGE_PUBLIC_URL", "http://127.0.0.1:8000").strip()
-    tools = get_tool_schemas(public_url)
+    tools = get_tool_schemas(public_url, include_compute=ALLOW_CODE_EXECUTION)
     return {"status": "success", "tools": tools}
 
 class TutorRequest(BaseModel):
-    session_id: Optional[str] = None
-    user_input: str
+    session_id: Optional[str] = Field(default=None, max_length=128)
+    user_input: str = Field(min_length=1, max_length=5_000)
+    reset: bool = False
 
 @app.post("/tutor")
-async def tutor_fsm(req: TutorRequest):
+async def tutor_fsm(
+    req: TutorRequest,
+    x_api_key: Optional[str] = Header(None, alias="X-LiteTutor-API-Key"),
+):
     session_id = req.session_id or str(uuid.uuid4())
     state = tutor_sessions.get(session_id)
-    if not state:
+    if req.reset or not state or state.get("stage") == "complete":
         state = {
-            "stage": "diagnose",
+            "stage": "explain",
             "question": req.user_input.strip(),
             "context": "",
-            "keywords": []
+            "keywords": [],
+            "quiz": {},
         }
         tutor_sessions[session_id] = state
-
-    stage = state["stage"]
-    if stage == "diagnose":
         response = (
-            f"我先做诊断：你正在处理的问题是「{state['question']}」。"
-            "请补充你目前的解题进度或卡住点。"
+            f"我先了解一下你对「{state['question']}」的掌握情况。"
+            "你目前已经知道什么，或者具体卡在哪里？"
         )
-        state["stage"] = "explain"
         return {"status": "success", "session_id": session_id, "stage": "diagnose", "response": response}
 
+    stage = state["stage"]
     if stage == "explain":
-        context, keywords, _, _, _ = _build_quiz(state["question"], None, 2)
+        learner_state = req.user_input.strip()
+        context = rag_db.query_knowledge_hybrid(state["question"], n_results=2)
+        keywords = _extract_keywords(context or state["question"])
         state["context"] = context
         state["keywords"] = keywords
-        response = (
-            "启发讲解如下：\n\n"
-            f"{context}\n\n"
-            "如果理解了，请回答「继续测验」。"
-        )
+        request_key = _api_key(x_api_key)
+        response = ""
+        if request_key:
+            prompt = f"""你是一名循序渐进的导师。请根据学生的当前理解，用简洁中文进行启发式讲解。
+
+学习主题：{state['question']}
+学生自述：{learner_state}
+课件资料：{context[:1800]}
+
+要求：先回应学生的卡点，再用一个直观例子讲清核心概念，最后给出一个自检问题。不要直接堆砌课件原文。"""
+            try:
+                resp = httpx.post(
+                    f"{DEEPSEEK_BASE}/chat/completions",
+                    headers={"Authorization": f"Bearer {request_key}"},
+                    json={
+                        "model": "deepseek-chat",
+                        "messages": [{"role": "user", "content": prompt}],
+                        "temperature": 0.4,
+                        "max_tokens": 700,
+                    },
+                    timeout=25,
+                )
+                resp.raise_for_status()
+                response = resp.json()["choices"][0]["message"]["content"]
+            except Exception:
+                response = ""
+        if not response:
+            if context:
+                response = f"结合你刚才的卡点，可以先抓住这些核心内容：\n\n{context}"
+            else:
+                response = "本地知识库中暂未找到相关课件内容，请先上传资料或换一个更具体的主题。"
+        response += "\n\n理解后回复“继续”，我会根据这个知识点出一道检查题。"
         state["stage"] = "quiz"
         return {"status": "success", "session_id": session_id, "stage": "explain", "response": response}
 
     if stage == "quiz":
-        _, keywords, prompt, _, _ = _build_quiz(state["question"], state.get("context", ""), 2)
+        _, keywords, prompt, q_type, extra = _build_quiz(
+            state["question"], state.get("context", ""), 2,
+            difficulty="medium", question_type="varied", api_key=x_api_key,
+        )
         state["keywords"] = keywords
+        state["quiz"] = {"question": prompt, "question_type": q_type, **extra}
         state["stage"] = "validate"
-        return {"status": "success", "session_id": session_id, "stage": "quiz", "response": prompt}
+        option_text = ""
+        if q_type == "choice":
+            option_text = "\n" + "\n".join(
+                f"{key}. {value}" for key, value in extra.get("options", {}).items()
+            )
+        return {
+            "status": "success", "session_id": session_id, "stage": "quiz",
+            "response": prompt + option_text, "question_type": q_type,
+        }
 
     if stage == "validate":
         keywords = state.get("keywords", [])
         answer = req.user_input.strip()
-        result, hits, feedback = _grade_answer_llm(
-            question=state.get("question", ""),
-            answer=answer,
-            keywords=keywords
+        quiz = state.get("quiz", {})
+        expected = quiz.get("blanks") if quiz.get("question_type") == "fill" else quiz.get("correct")
+        structured_result = grade_structured_answer(
+            quiz.get("question_type", "short_answer"), answer, expected
         )
-        # 记录到学习数据库
+        if structured_result is not None:
+            result, hits, feedback = structured_result
+        else:
+            result, hits, feedback = _grade_answer_llm(
+                question=quiz.get("question", state.get("question", "")),
+                answer=answer,
+                keywords=keywords,
+                api_key=x_api_key,
+            )
         record = {
             "timestamp": datetime.now().isoformat(),
-            "question": state.get("question", ""),
+            "question": quiz.get("question", state.get("question", "")),
             "keywords": keywords,
             "answer": answer,
             "result": result,
             "hits": hits,
-            "feedback": feedback
+            "feedback": feedback,
+            "question_type": quiz.get("question_type", "short_answer"),
         }
-        sid = session_id
-        if sid not in learning_db:
-            learning_db[sid] = []
-        learning_db[sid].append(record)
-        _save_learning_db(learning_db)
-        response = f"{result}。{feedback}\n\n如果需要，我可以继续补充讲解或出新题。"
-        state["stage"] = "complete"
-        return {"status": "success", "session_id": session_id, "stage": "validate", "response": response, "matched_keywords": hits}
+        _record_learning(session_id, record)
+        if result == "校验通过":
+            response = f"{result}。{feedback}\n\n这一轮完成了。直接输入新主题即可开始下一轮。"
+            state["stage"] = "complete"
+        else:
+            response = f"{result}。{feedback}\n\n我会降低一点难度重新检查。回复“继续”获取补救题。"
+            state["stage"] = "remediate"
+        return {
+            "status": "success", "session_id": session_id, "stage": "validate",
+            "response": response, "matched_keywords": hits,
+        }
 
-    response = "本轮已完成。如需继续，请提交新问题。"
-    return {"status": "success", "session_id": session_id, "stage": "complete", "response": response}
+    if stage == "remediate":
+        _, keywords, prompt, q_type, extra = _build_quiz(
+            state["question"], state.get("context", ""), 2,
+            difficulty="easy", question_type="choice", api_key=x_api_key,
+        )
+        state["keywords"] = keywords
+        state["quiz"] = {"question": prompt, "question_type": q_type, **extra}
+        state["stage"] = "validate"
+        option_text = "\n" + "\n".join(
+            f"{key}. {value}" for key, value in extra.get("options", {}).items()
+        )
+        return {
+            "status": "success", "session_id": session_id, "stage": "remediate",
+            "response": "我们换一道更基础的题：\n\n" + prompt + option_text,
+            "question_type": q_type,
+        }
+
+    return {"status": "error", "session_id": session_id, "message": "未知教学状态"}
 
 @app.get("/learning_stats")
-async def get_learning_stats(session_id: str = "default"):
+async def get_learning_stats(session_id: str = Query(default="default", max_length=128)):
     records = learning_db.get(session_id, [])
     return {"status": "success", "records": records}
 
@@ -539,26 +653,23 @@ async def get_all_sessions():
 @app.post("/upload_pdf")
 async def upload_pdf(file: UploadFile = File(...)):
     """上传PDF，自动解析文本并加入知识库"""
-    if not file.filename.endswith(".pdf"):
+    original_name = Path(file.filename or "upload.pdf").name
+    if Path(original_name).suffix.lower() != ".pdf":
         return {"status": "error", "message": "只支持PDF文件"}
     try:
         # 读取上传的PDF内容
         contents = await file.read()
+        max_mb = max(1, int(os.getenv("LITETUTOR_MAX_PDF_MB", "20")))
+        max_bytes = max_mb * 1024 * 1024
+        if len(contents) > max_bytes:
+            return {"status": "error", "message": f"PDF文件过大，请上传{max_mb}MB以内的文件"}
         
-        # 用临时文件解析
-        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
-            tmp.write(contents)
-            tmp_path = tmp.name
-        
-        # 用pymupdf提取文字
-        doc = fitz.open(tmp_path)
         all_text = []
-        for page_num, page in enumerate(doc):
-            text = page.get_text().strip()
-            if text:
-                all_text.append(f"【第{page_num+1}页】\n{text}")
-        doc.close()
-        os.unlink(tmp_path)
+        with fitz.open(stream=contents, filetype="pdf") as doc:
+            for page_num, page in enumerate(doc):
+                text = page.get_text().strip()
+                if text:
+                    all_text.append(f"【第{page_num+1}页】\n{text}")
         
         if not all_text:
             return {"status": "error", "message": "PDF中没有可提取的文字（可能是扫描件）"}
@@ -566,21 +677,22 @@ async def upload_pdf(file: UploadFile = File(...)):
         full_text = "\n\n".join(all_text)
         
         # 存到本地txt备份
-        safe_name = file.filename.replace(".pdf", "").replace(" ", "_")
-        txt_path = Path(f"{safe_name}_extracted.txt")
+        safe_name = re.sub(r"[^a-zA-Z0-9\u4e00-\u9fff_-]+", "_", Path(original_name).stem)
+        UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+        txt_path = UPLOAD_DIR / f"{safe_name}_extracted.txt"
         txt_path.write_text(full_text, encoding="utf-8")
         
         # 加入RAG知识库
-        added = rag_db.add_document(full_text, source=file.filename)
+        added = rag_db.add_document(full_text, source=original_name)
         if not added:
             return {
                 "status": "error",
-                "message": f"该文档已存在于知识库中，无需重复导入"
+                "message": "该文档已存在于知识库中，无需重复导入"
             }
         
         return {
             "status": "success",
-            "filename": file.filename,
+            "filename": original_name,
             "pages": len(all_text),
             "chars": len(full_text),
             "message": f"成功导入{len(all_text)}页内容到知识库"
@@ -616,4 +728,8 @@ async def delete_knowledge_source(source_name: str):
         return {"status": "error", "message": str(e)}
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(
+        app,
+        host=os.getenv("LITETUTOR_HOST", "127.0.0.1"),
+        port=int(os.getenv("LITETUTOR_PORT", "8000")),
+    )

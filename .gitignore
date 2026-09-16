@@ -14,9 +14,16 @@ env/
 
 # Logs
 *.log
+.pytest_cache/
+
+# Local secrets
+.env
+skills/.env
 
 # Chroma DB (vector database data)
 skills/chroma_db/
+skills/user_learning_db.json
+skills/uploads/
 
 # Claude
 .claude/

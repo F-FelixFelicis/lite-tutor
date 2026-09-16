@@ -13,9 +13,9 @@ class EdgeComputeTool:
         self.api_url = f"{cpolar_url.rstrip('/')}/solve"
         self.name = "edge_compute_sandbox"
         self.description = (
-            "Execute complex math, physics, or coding tasks in a secure local physical sandbox. "
+            "Execute small deterministic Python calculations in an isolated local process. "
             "Use this ONLY when deterministic calculation or code execution is required. "
-            "Do NOT use this for general knowledge queries."
+            "Do NOT use this for untrusted code, file access, or general knowledge queries."
         )
 
     def get_tool_schema(self) -> Dict[str, Any]:
@@ -31,50 +31,50 @@ class EdgeComputeTool:
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "task_instruction": {
-                            "type": "string",
-                            "description": "The natural language instruction or math problem for the physical machine to solve (e.g., 'Calculate 2^10')."
-                        },
                         "code": {
                             "type": "string",
                             "description": "Python code to execute directly in the local sandbox."
                         },
                         "language": {
                             "type": "string",
+                            "enum": ["python"],
                             "description": "Execution language. Only python is supported."
                         },
                         "timeout": {
                             "type": "integer",
+                            "minimum": 1,
+                            "maximum": 10,
                             "description": "Max execution time in seconds."
                         }
                     },
-                    "required": [],
+                    "required": ["code"],
                     "additionalProperties": False
                 }
             }
         }
 
-    def execute(self, task_instruction: str = "", code: str = "", language: str = "python", timeout: int = 20) -> str:
+    def execute(self, code: str, language: str = "python", timeout: int = 10) -> str:
         """
         The actual execution engine of the tool.
         Fires the POST request to the Edge Node.
         """
-        print(f"\n[TOOL TRIGGERED] Name: {self.name} | Payload: {task_instruction or code}")
+        print(f"\n[TOOL TRIGGERED] Name: {self.name} | Python code received")
         headers = {"Content-Type": "application/json"}
         payload = {
-            "task_instruction": task_instruction,
             "code": code,
             "language": language,
             "timeout": timeout
         }
         
         try:
-            # Fire-and-forget request with a short timeout to prevent blocking the LLM
             response = requests.post(self.api_url, headers=headers, json=payload, timeout=10)
             
             if response.status_code == 200:
                 data = response.json()
-                return f"Tool Execution Status: {data.get('status')}. Receipt: {data.get('solution')}"
+                return (
+                    f"Tool Execution Status: {data.get('status')}. "
+                    f"stdout: {data.get('stdout', '')}. stderr: {data.get('stderr', '')}"
+                )
             else:
                 return f"Tool Execution Failed with status code: {response.status_code}"
                 
@@ -214,6 +214,19 @@ class EdgeGradeTool:
                         "min_hit": {
                             "type": "integer",
                             "description": "Minimum number of keyword hits required to pass."
+                        },
+                        "question_type": {
+                            "type": "string",
+                            "enum": ["choice", "fill", "short_answer", "true_false"],
+                            "description": "Question type. Objective types are graded deterministically."
+                        },
+                        "expected_answer": {
+                            "oneOf": [
+                                {"type": "string"},
+                                {"type": "boolean"},
+                                {"type": "array", "items": {"type": "string"}},
+                            ],
+                            "description": "Correct option, boolean value, or list of fill-in answers."
                         }
                     },
                     "required": ["answer"],
@@ -222,12 +235,21 @@ class EdgeGradeTool:
             }
         }
 
-    def execute(self, answer: str, keywords: List[str] = None, min_hit: int = 1) -> str:
+    def execute(
+        self,
+        answer: str,
+        keywords: List[str] = None,
+        min_hit: int = 1,
+        question_type: str = "short_answer",
+        expected_answer: Any = None,
+    ) -> str:
         headers = {"Content-Type": "application/json"}
         payload = {
             "answer": answer,
             "keywords": keywords or [],
-            "min_hit": min_hit
+            "min_hit": min_hit,
+            "question_type": question_type,
+            "expected_answer": expected_answer,
         }
         try:
             response = requests.post(self.api_url, headers=headers, json=payload, timeout=10)
@@ -238,28 +260,15 @@ class EdgeGradeTool:
         except Exception as e:
             return f"Tool Execution Error (Edge node might be offline): {str(e)}"
 
-def get_tool_schemas(cpolar_url: str) -> List[Dict[str, Any]]:
+def get_tool_schemas(cpolar_url: str, include_compute: bool = False) -> List[Dict[str, Any]]:
     tools = [
-        EdgeComputeTool(cpolar_url),
         EdgeKnowledgeTool(cpolar_url),
         EdgeQuizTool(cpolar_url),
         EdgeGradeTool(cpolar_url)
     ]
+    if include_compute:
+        tools.insert(0, EdgeComputeTool(cpolar_url))
     return [tool.get_tool_schema() for tool in tools]
 
-# Quick Local Test Block
 if __name__ == "__main__":
-    # Replace with your current active Cpolar URL
-    TEST_CPOLAR_URL = "https://tutor.vip.cpolar.cn" 
-    
-    # Initialize the weapon
-    sandbox_tool = EdgeComputeTool(TEST_CPOLAR_URL)
-    
-    # Check the schema (What the LLM sees)
-    print("--- Tool Schema (For LLM) ---")
-    print(json.dumps(sandbox_tool.get_tool_schema(), indent=2))
-    
-    # Pull the trigger (What happens when the LLM calls it)
-    print("\n--- Testing Execution ---")
-    result = sandbox_tool.execute("Write a Python code to calculate 2 to the power of 10 and print GeekDay")
-    print(f"Return to LLM:\n{result}")
+    print(json.dumps(get_tool_schemas("http://127.0.0.1:8000"), indent=2))

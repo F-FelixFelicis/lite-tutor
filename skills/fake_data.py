@@ -77,7 +77,7 @@ records = [
      "hits": ["主键", "外键", "关联"], "feedback": "正确"},
 ]
 
-db_path = Path("learning_db.json")
+db_path = Path(__file__).resolve().parent / "learning_db.json"
 if db_path.exists():
     db = json.loads(db_path.read_text(encoding="utf-8"))
 else:
